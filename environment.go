@@ -2,7 +2,7 @@ package fixtures
 
 import (
 	"log"
-	
+
 	"github.com/vrischmann/envconfig"
 )
 

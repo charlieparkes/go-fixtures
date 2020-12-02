@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"log"
 
+	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
-	"github.com/docker/docker/pkg/namesgenerator"
 )
 
 type DockerPool struct {

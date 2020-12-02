@@ -222,7 +222,6 @@ func (f *PostgresDatabaseCopy) SetUp() error {
 	return nil
 }
 
-
 func (f *PostgresDatabaseCopy) TearDown() error {
 	return f.Postgres.DropDatabase(f.DatabaseName)
 }
