@@ -135,7 +135,11 @@ func waitForPostgres(pool *dockertest.Pool, resource *dockertest.Resource, setti
 	}
 	if err := pool.Retry(func() error {
 		var err error
-		settings.Port = resource.GetPort("5432/tcp")
+		port := resource.GetPort("5432/tcp")
+		if port == "" {
+			return fmt.Errorf("Could not get port from container: %+v", resource.Container)
+		}
+		settings.Port = port
 		db, err := settings.Open()
 		defer db.Close()
 		if err != nil {
