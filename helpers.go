@@ -9,7 +9,7 @@ import (
 	"github.com/ory/dockertest/v3"
 )
 
-func generateString() string {
+func GenerateString() string {
 	rand.Seed(time.Now().UTC().UnixNano())
 	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
 	result := make([]byte, 10) // Make some space
@@ -19,12 +19,12 @@ func generateString() string {
 	return string(result)
 }
 
-func getTestDataPath(name string) string {
+func GetTestDataPath(name string) string {
 	path := filepath.Join("testdata", name)
 	return path
 }
 
-func waitForContainer(pool *dockertest.Pool, resource *dockertest.Resource) int {
+func WaitForContainer(pool *dockertest.Pool, resource *dockertest.Resource) int {
 	exitCode, err := pool.Client.WaitContainer(resource.Container.ID)
 	if err != nil {
 		log.Fatalf("Unable to wait for container: %s", err)

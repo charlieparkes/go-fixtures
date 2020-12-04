@@ -182,7 +182,7 @@ func (f *Psql) SetUp() error {
 	if err != nil {
 		return err
 	}
-	f.ExitCode = waitForContainer(f.Pool.Pool, f.Resource)
+	f.ExitCode = WaitForContainer(f.Pool.Pool, f.Resource)
 	containerName := f.Resource.Container.Name[1:]
 	containerID := f.Resource.Container.ID[0:11]
 	if f.ExitCode != 0 {
@@ -255,7 +255,7 @@ func (f *PostgresSchema) SetUp() error {
 	// Load schema for this database if it exists.
 	// Note: We will load the schema based on the name of the database on the original database connection settings.
 	schemaName := f.Postgres.Settings.Database
-	path := getTestDataPath(schemaName + ".sql")
+	path := GetTestDataPath(schemaName + ".sql")
 	err := f.Postgres.LoadTestData(schemaName, path)
 	if err != nil {
 		log.Fatalf("Failed to load test data: %s", err)

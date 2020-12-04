@@ -24,7 +24,7 @@ type Fixtures struct {
 }
 
 func (f *Fixtures) Add(fixture Fixture) error {
-	return f.AddByName(generateString(), fixture)
+	return f.AddByName(GenerateString(), fixture)
 }
 
 func (f *Fixtures) AddByName(name string, fixture Fixture) error {
