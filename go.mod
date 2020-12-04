@@ -1,4 +1,4 @@
-module github.com/tovala/fixtures
+module github.com/tovala/go-fixtures
 
 go 1.15
 

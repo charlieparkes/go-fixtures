@@ -95,21 +95,21 @@ func (f *Postgres) CreateDatabase(name string) error {
 	fmt.Printf("Create database %v on server %v .. ", name, f.GetHostName())
 	// exitCode, err := f.Psql([]string{"psql", fmt.Sprintf("--command=CREATE DATABASE %v", name)}, []string{})
 	exitCode, err := f.Psql([]string{"createdb", "--template=template0", name}, []string{})
-	fmt.Printf("%v\n", getStatusSymbol(exitCode))
+	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
 func (f *Postgres) CopyDatabase(source string, target string) error {
 	fmt.Printf("Copy database %v to %v on server %v .. ", source, target, f.GetHostName())
 	exitCode, err := f.Psql([]string{"createdb", fmt.Sprintf("--template=%v", source), target}, []string{})
-	fmt.Printf("%v\n", getStatusSymbol(exitCode))
+	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
 func (f *Postgres) DropDatabase(name string) error {
 	fmt.Printf("Drop database %v on server %v .. ", name, f.GetHostName())
 	exitCode, err := f.Psql([]string{"dropdb", name}, []string{})
-	fmt.Printf("%v\n", getStatusSymbol(exitCode))
+	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
@@ -119,7 +119,7 @@ func (f *Postgres) LoadTestData(schemaName string, path string) error {
 		fmt.Printf("Load %v data into database %v on server %v .. ", schemaName, f.Settings.Database, f.GetHostName())
 		// exitCode, err := f.Psql([]string{"./tmp/load.sh", schemaName}, []string{fmt.Sprintf("%v:/tmp", testdataDir)})
 		exitCode, err := f.Psql([]string{"psql", fmt.Sprintf("--file=/tmp/%v.sql", schemaName)}, []string{fmt.Sprintf("%v:/tmp", testdataDir)})
-		fmt.Printf("%v\n", getStatusSymbol(exitCode))
+		fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 		if err != nil {
 			log.Fatalf("Failed to run psql (load schema): %s", err)
 			return err

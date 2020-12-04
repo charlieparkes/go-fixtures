@@ -6,46 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/ory/dockertest/v3"
 )
-
-func GetDatabaseFixtures() *Fixtures {
-	fixtures := &Fixtures{}
-
-	pool := DockerPool{}
-	fixtures.Add(&pool)
-
-	network := DockerNetwork{
-		Pool:       &pool,
-		NamePrefix: "oatmeal_test",
-	}
-	fixtures.Add(&network)
-
-	db := CombinedAPIDatabase{
-		Network: &network,
-	}
-	fixtures.AddByName("combinedapi", &db)
-
-	return fixtures
-}
-
-func LoadCombinedAPISchema(fixtures *Fixtures) (*sqlx.DB, func()) {
-	databaseFixture := fixtures.Get("combinedapi").(*CombinedAPIDatabase)
-	tmpdb := &PostgresDatabaseCopy{
-		Postgres: databaseFixture.Postgres.Postgres,
-	}
-	err := tmpdb.SetUp()
-	if err != nil {
-		log.Fatalf("Failed to setup CombinedAPI with schema.: %v", err)
-	}
-	db, closeHandler := tmpdb.GetConnection()
-	tearDown := func() {
-		closeHandler()
-		tmpdb.TearDown()
-	}
-	return db, tearDown
-}
 
 func generateString() string {
 	rand.Seed(time.Now().UTC().UnixNano())

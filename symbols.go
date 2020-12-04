@@ -11,21 +11,21 @@ var symbols map[string]int = map[string]int{
 	"crossmark": 10008,
 }
 
-func castUnicodeToSymbol(hex int) string {
+func CastUnicodeToSymbol(hex int) string {
 	// https://play.golang.org/p/Xr7ULppG7hq
 	return html.UnescapeString("&#" + strconv.Itoa(hex) + ";")
 }
 
-func getSymbol(name string) string {
+func GetSymbol(name string) string {
 	if val, ok := symbols[name]; ok {
-		return castUnicodeToSymbol(val)
+		return CastUnicodeToSymbol(val)
 	}
 	return ""
 }
 
-func getStatusSymbol(exitCode int) string {
+func GetStatusSymbol(exitCode int) string {
 	if exitCode == 0 {
-		return getSymbol("checkmark")
+		return GetSymbol("checkmark")
 	}
-	return getSymbol("crossmark")
+	return GetSymbol("crossmark")
 }

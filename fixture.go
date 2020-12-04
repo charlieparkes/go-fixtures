@@ -43,7 +43,7 @@ func (f *Fixtures) AddByName(name string, fixture Fixture) error {
 		status = 0
 	}
 	if env.Debug {
-		fmt.Printf("%v Setup %v<%v>\n", getStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
+		fmt.Printf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 	}
 	return err
 }
@@ -63,7 +63,7 @@ func (f *Fixtures) SetUp() {
 			status = 0
 		}
 		if env.Debug {
-			fmt.Printf("%v Setup %v<%v>\n", getStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
+			fmt.Printf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 		}
 	}
 }
@@ -84,7 +84,7 @@ func (f *Fixtures) TearDown() {
 			status = 0
 		}
 		if env.Debug {
-			fmt.Printf("%v Teardown %v<%v>\n", getStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
+			fmt.Printf("%v Teardown %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 		}
 	}
 }
