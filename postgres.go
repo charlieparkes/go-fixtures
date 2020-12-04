@@ -135,6 +135,9 @@ func waitForPostgres(pool *dockertest.Pool, resource *dockertest.Resource, setti
 		db, err := settings.Open()
 		defer db.Close()
 		if err != nil {
+			if env.Debug {
+				log.Printf("waitForPostgres(%+v, %+v, %+v) -> %v", pool, resource, settings, err)
+			}
 			return err
 		}
 		return db.Ping()
