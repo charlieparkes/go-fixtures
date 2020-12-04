@@ -128,7 +128,11 @@ func (f *Postgres) LoadTestData(schemaName string, path string) error {
 	return nil
 }
 
+// https://github.com/ory/dockertest/blob/v3/examples/PostgreSQL.md
 func waitForPostgres(pool *dockertest.Pool, resource *dockertest.Resource, settings *ezsqlx.ConnectionSettings) {
+	if env.Debug {
+		log.Printf("waitForPostgres(%+v, %+v, %+v)", pool, resource, settings)
+	}
 	if err := pool.Retry(func() error {
 		var err error
 		settings.Port = resource.GetPort("5432/tcp")
