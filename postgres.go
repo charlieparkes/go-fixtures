@@ -56,15 +56,12 @@ func (f *Postgres) TearDown() error {
 	return f.Pool.Pool.Purge(f.Resource)
 }
 
-func (f *Postgres) GetConnection(dbname string) (*sqlx.DB, func() error) {
+func (f *Postgres) GetConnection(dbname string) *sqlx.DB {
 	settings := f.Settings.Copy()
 	if dbname != "" {
 		settings.Database = dbname
 	}
-	connections, tearDown := ezsqlx.InitConnections(map[string]*ezsqlx.ConnectionSettings{
-		f.Settings.Database: settings,
-	})
-	return connections[f.Settings.Database], tearDown
+	return settings.Init()
 }
 
 func (f *Postgres) GetHostIP() string {
@@ -237,7 +234,11 @@ func (f *PostgresDatabaseCopy) TearDown() error {
 }
 
 func (f *PostgresDatabaseCopy) GetConnection() (*sqlx.DB, func() error) {
-	return f.Postgres.GetConnection(f.DatabaseName)
+	db := f.Postgres.GetConnection(f.DatabaseName)
+	close := func() error {
+		return db.Close()
+	}
+	return db, close
 }
 
 type PostgresSchema struct {
@@ -280,7 +281,11 @@ func (f *PostgresSchema) TearDown() error {
 }
 
 func (f *PostgresSchema) GetConnection() (*sqlx.DB, func() error) {
-	return f.Postgres.GetConnection(f.DatabaseName)
+	db := f.Postgres.GetConnection(f.DatabaseName)
+	close := func() error {
+		return db.Close()
+	}
+	return db, close
 }
 
 type PostgresWithSchema struct {
