@@ -91,12 +91,15 @@ func (f *Postgres) Psql(cmd []string, mounts []string) (int, error) {
 	return psql.ExitCode, err
 }
 
-func (f *Postgres) CreateDatabase(name string) error {
+func (f *Postgres) CreateDatabase(name string) (string, error) {
+	if name == "" {
+		name = namesgenerator.GetRandomName(0)
+	}
 	fmt.Printf("Create database %v on server %v .. ", name, f.GetHostName())
 	// exitCode, err := f.Psql([]string{"psql", fmt.Sprintf("--command=CREATE DATABASE %v", name)}, []string{})
 	exitCode, err := f.Psql([]string{"createdb", "--template=template0", name}, []string{})
 	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
-	return err
+	return name, err
 }
 
 func (f *Postgres) CopyDatabase(source string, target string) error {
@@ -251,7 +254,7 @@ func (f *PostgresSchema) SetUp() error {
 	// If no DatabaseName is provided, create a temp database.
 	if f.DatabaseName == "" {
 		f.DatabaseName = namesgenerator.GetRandomName(0)
-		err := f.Postgres.CreateDatabase(f.DatabaseName)
+		_, err := f.Postgres.CreateDatabase(f.DatabaseName)
 		if err != nil {
 			log.Fatalf("Failed to create database: %s", err)
 			return err
