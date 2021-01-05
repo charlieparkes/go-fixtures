@@ -84,6 +84,10 @@ func (f *Postgres) Psql(cmd []string, mounts []string) (int, error) {
 		Cmd:      cmd,
 	}
 	err := psql.SetUp()
+	if err != nil && env.Debug {
+		// If there was an issue, and debug is enabled, don't destroy the container.
+		return psql.ExitCode, err
+	}
 	psql.TearDown()
 	return psql.ExitCode, err
 }
