@@ -20,6 +20,7 @@ type Postgres struct {
 	Settings *ezsqlx.ConnectionSettings
 	Resource *dockertest.Resource
 	Version  string
+	Expire   uint
 }
 
 func (f *Postgres) SetUp() error {
@@ -45,7 +46,10 @@ func (f *Postgres) SetUp() error {
 	}
 
 	// Tell docker to kill the container after an unreasonable amount of test time to prevent orphans.
-	f.Resource.Expire(600)
+	if f.Expire == 0 {
+		f.Expire = 600
+	}
+	f.Resource.Expire(f.Expire)
 
 	waitForPostgres(f.Pool.Pool, f.Resource, f.Settings)
 
