@@ -1,4 +1,4 @@
-package fixtures
+package env
 
 import (
 	"log"
@@ -17,4 +17,8 @@ func init() {
 	if err := envconfig.Init(env); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func Get() *Environment {
+	return env
 }

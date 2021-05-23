@@ -7,6 +7,10 @@ github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEV
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
 github.com/cenkalti/backoff/v3 v3.0.0 h1:ske+9nBpD9qZsTBoF41nW5L+AIuFBKMeze18XQ3eG1c=
 github.com/cenkalti/backoff/v3 v3.0.0/go.mod h1:cIeZDE3IrqwwJl6VUwCN6trj1oXrTS4rc0ij+ULvLYs=
+github.com/charlieparkes/ezsqlx v0.0.11 h1:kp5CUy0yckgQHTmBXzVjCglckx36C4Ihoj97ZQu3164=
+github.com/charlieparkes/ezsqlx v0.0.11/go.mod h1:BWzby3NZKcTGiCtEwLSq4JLmZVcJrc8kWDushLKV0Tc=
+github.com/charlieparkes/go-helpers v0.0.2 h1:TQ8n/hayz+cTkVwuzpHEsnw9e/J/X0AsWORQSHk9moE=
+github.com/charlieparkes/go-helpers v0.0.2/go.mod h1:fknvrtjxwWaf6wPIIHYErIvGWW79uPlJOyFRUvvkYOA=
 github.com/cockroachdb/apd v1.1.0 h1:3LFP3629v+1aKXU5Q37mxmRxX/pIu1nijXydLShEq5I=
 github.com/cockroachdb/apd v1.1.0/go.mod h1:8Sl8LxpKi29FqWXR16WEFZRNSz3SoPzUzeMeY4+DwBQ=
 github.com/containerd/continuity v0.0.0-20190827140505-75bee3e2ccb6 h1:NmTXa/uVnDyp0TY5MKi197+3HWcnYWfnHGyaFthlnGw=
@@ -154,10 +158,6 @@ github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81P
 github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5cxcmMvtA=
 github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd0=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
-github.com/tovala/ezsqlx v0.0.2 h1:Ig3eExqq5pr4J1pZK0HAnpNrIumZfk6o3x9ptSIqag4=
-github.com/tovala/ezsqlx v0.0.2/go.mod h1:COvexpXB1+G0FXInxN09Idytti7F0C14zp6z+KlcHrE=
-github.com/tovala/go-helpers v0.0.1 h1:jGXsT2QIZsMnJs0br9iBoPQ1Z6fqtxH/M8zlRFQWkIU=
-github.com/tovala/go-helpers v0.0.1/go.mod h1:xu7LGDLmh092BFaGKu0EXMoofEOw8CO1lDQUe5nKLmI=
 github.com/vrischmann/envconfig v1.3.0 h1:4XIvQTXznxmWMnjouj0ST5lFo/WAYf5Exgl3x82crEk=
 github.com/vrischmann/envconfig v1.3.0/go.mod h1:bbvxFYJdRSpXrhS63mBFtKJzkDiNkyArOLXtY6q0kuI=
 github.com/zenazn/goji v0.9.0/go.mod h1:7S9M489iMyHBNxwZnk9/EHS098H4/F6TATF2mIxtB1Q=

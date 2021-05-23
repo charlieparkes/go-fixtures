@@ -1,12 +1,9 @@
-package fixtures
+package helpers
 
 import (
-	"log"
 	"math/rand"
 	"path/filepath"
 	"time"
-
-	"github.com/ory/dockertest/v3"
 )
 
 func GenerateString() string {
@@ -22,12 +19,4 @@ func GenerateString() string {
 func GetTestDataPath(name string) string {
 	path := filepath.Join("testdata", name)
 	return path
-}
-
-func WaitForContainer(pool *dockertest.Pool, resource *dockertest.Resource) int {
-	exitCode, err := pool.Client.WaitContainer(resource.Container.ID)
-	if err != nil {
-		log.Fatalf("Unable to wait for container: %s", err)
-	}
-	return exitCode
 }

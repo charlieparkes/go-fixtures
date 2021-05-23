@@ -1,16 +1,17 @@
-package fixtures
+package docker
 
 import (
 	"bytes"
 	"log"
 
+	"github.com/charlieparkes/go-fixtures/pkg/fixtures"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 )
 
 type DockerPool struct {
-	BaseFixture
+	fixtures.BaseFixture
 	Pool *dockertest.Pool
 }
 
@@ -26,7 +27,7 @@ func (f *DockerPool) TearDown() error {
 }
 
 type DockerNetwork struct {
-	BaseFixture
+	fixtures.BaseFixture
 	Pool       *DockerPool
 	Network    *dockertest.Network
 	Name       string

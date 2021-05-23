@@ -1,4 +1,4 @@
-package fixtures
+package symbols
 
 import (
 	"html"

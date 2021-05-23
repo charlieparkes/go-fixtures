@@ -4,19 +4,11 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+
+	"github.com/charlieparkes/go-fixtures/internal/env"
+	"github.com/charlieparkes/go-fixtures/internal/helpers"
+	"github.com/charlieparkes/go-fixtures/pkg/symbols"
 )
-
-type BaseFixture struct{}
-
-func (f *BaseFixture) Type() string {
-	return fmt.Sprint(reflect.TypeOf(f).Elem())
-}
-
-type Fixture interface {
-	Type() string
-	SetUp() error
-	TearDown() error
-}
 
 type Fixtures struct {
 	store map[string]Fixture
@@ -24,7 +16,7 @@ type Fixtures struct {
 }
 
 func (f *Fixtures) Add(fixture Fixture) error {
-	return f.AddByName(GenerateString(), fixture)
+	return f.AddByName(helpers.GenerateString(), fixture)
 }
 
 func (f *Fixtures) AddByName(name string, fixture Fixture) error {
@@ -42,8 +34,8 @@ func (f *Fixtures) AddByName(name string, fixture Fixture) error {
 	} else {
 		status = 0
 	}
-	if env.Debug {
-		fmt.Printf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
+	if env.Get().Debug {
+		fmt.Printf("%v Setup %v<%v>\n", symbols.GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 	}
 	return err
 }
@@ -62,8 +54,8 @@ func (f *Fixtures) SetUp() {
 		} else {
 			status = 0
 		}
-		if env.Debug {
-			fmt.Printf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
+		if env.Get().Debug {
+			fmt.Printf("%v Setup %v<%v>\n", symbols.GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 		}
 	}
 }
@@ -83,8 +75,8 @@ func (f *Fixtures) TearDown() {
 		} else {
 			status = 0
 		}
-		if env.Debug {
-			fmt.Printf("%v Teardown %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
+		if env.Get().Debug {
+			fmt.Printf("%v Teardown %v<%v>\n", symbols.GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 		}
 	}
 }
