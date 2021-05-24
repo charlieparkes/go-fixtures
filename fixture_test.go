@@ -21,6 +21,11 @@ func (df *DummyFixture) TearDown() error {
 	return nil
 }
 
+func TestGetType(t *testing.T) {
+	f := DummyFixture{}
+	assert.Equal(t, "fixtures.BaseFixture", f.Type())
+}
+
 func TestFixtures(t *testing.T) {
 	fixtures := Fixtures{}
 	df := DummyFixture{}
