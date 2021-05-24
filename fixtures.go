@@ -6,8 +6,6 @@ import (
 	"reflect"
 
 	"github.com/charlieparkes/go-fixtures/internal/env"
-	"github.com/charlieparkes/go-fixtures/internal/helpers"
-	"github.com/charlieparkes/go-fixtures/pkg/symbols"
 )
 
 type Fixtures struct {
@@ -17,7 +15,7 @@ type Fixtures struct {
 
 func (f *Fixtures) Add(fixtures ...Fixture) error {
 	for _, fix := range fixtures {
-		if err := f.AddByName(helpers.GenerateString(), fix); err != nil {
+		if err := f.AddByName(GenerateString(), fix); err != nil {
 			return err
 		}
 	}
@@ -40,7 +38,7 @@ func (f *Fixtures) AddByName(name string, fixture Fixture) error {
 		status = 0
 	}
 	if env.Get().Debug {
-		fmt.Printf("%v Setup %v<%v>\n", symbols.GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
+		fmt.Printf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 	}
 	return err
 }
@@ -62,7 +60,7 @@ func (f *Fixtures) SetUp() error {
 			status = 0
 		}
 		if env.Get().Debug {
-			fmt.Printf("%v Setup %v<%v>\n", symbols.GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
+			fmt.Printf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 		}
 
 		if err != nil {
@@ -94,7 +92,7 @@ func (f *Fixtures) TearDown() error {
 			status = 0
 		}
 		if env.Get().Debug {
-			fmt.Printf("%v Teardown %v<%v>\n", symbols.GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
+			fmt.Printf("%v Teardown %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 		}
 	}
 

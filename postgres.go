@@ -1,4 +1,4 @@
-package postgres
+package fixtures
 
 import (
 	"fmt"
@@ -8,17 +8,13 @@ import (
 
 	"github.com/charlieparkes/ezsqlx"
 	"github.com/charlieparkes/go-fixtures/internal/env"
-	"github.com/charlieparkes/go-fixtures/internal/helpers"
-	"github.com/charlieparkes/go-fixtures/pkg/docker"
-	"github.com/charlieparkes/go-fixtures/pkg/fixtures"
-	"github.com/charlieparkes/go-fixtures/pkg/symbols"
 	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/jmoiron/sqlx"
 	"github.com/ory/dockertest/v3"
 )
 
 type Postgres struct {
-	Docker   *docker.Docker
+	Docker   *Docker
 	Settings *ezsqlx.ConnectionSettings
 	Resource *dockertest.Resource
 	Version  string
@@ -33,7 +29,7 @@ func (f *Postgres) SetUp() error {
 		f.Settings = &ezsqlx.ConnectionSettings{
 			Host:       "localhost",
 			User:       "postgres",
-			Password:   helpers.GenerateString(),
+			Password:   GenerateString(),
 			Database:   f.Docker.Name,
 			DisableSSL: true,
 		}
@@ -81,11 +77,11 @@ func (f *Postgres) GetConnection(dbname string) (*sqlx.DB, error) {
 }
 
 func (f *Postgres) GetHostIP() string {
-	return docker.GetHostIP(f.Resource, f.Docker.Network)
+	return GetHostIP(f.Resource, f.Docker.Network)
 }
 
 func (f *Postgres) GetHostName() string {
-	return docker.GetHostName(f.Resource)
+	return GetHostName(f.Resource)
 }
 
 func (f *Postgres) Psql(cmd []string, mounts []string, quiet bool) (int, error) {
@@ -113,21 +109,21 @@ func (f *Postgres) CreateDatabase(name string) (string, error) {
 	}
 	fmt.Printf("Create database %v on server %v .. ", name, f.GetHostName())
 	exitCode, err := f.Psql([]string{"createdb", "--template=template0", name}, []string{}, false)
-	fmt.Printf("%v\n", symbols.GetStatusSymbol(exitCode))
+	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 	return name, err
 }
 
 func (f *Postgres) CopyDatabase(source string, target string) error {
 	fmt.Printf("Copy database %v to %v on server %v .. ", source, target, f.GetHostName())
 	exitCode, err := f.Psql([]string{"createdb", fmt.Sprintf("--template=%v", source), target}, []string{}, false)
-	fmt.Printf("%v\n", symbols.GetStatusSymbol(exitCode))
+	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
 func (f *Postgres) DropDatabase(name string) error {
 	fmt.Printf("Drop database %v on server %v .. ", name, f.GetHostName())
 	exitCode, err := f.Psql([]string{"dropdb", name}, []string{}, false)
-	fmt.Printf("%v\n", symbols.GetStatusSymbol(exitCode))
+	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
@@ -140,7 +136,7 @@ func (f *Postgres) LoadSql(path string) error {
 		name := filepath.Base(p)
 		fmt.Printf("Load %v data into database %v on server %v .. ", name, f.Settings.Database, f.GetHostName())
 		exitCode, err := f.Psql([]string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false)
-		fmt.Printf("%v\n", symbols.GetStatusSymbol(exitCode))
+		fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 		if err != nil {
 			log.Fatalf("Failed to run psql (load sql): %s", err)
 			return err
@@ -214,8 +210,7 @@ func (f *Postgres) WaitForReady() error {
 }
 
 type Psql struct {
-	fixtures.BaseFixture
-	Docker   *docker.Docker
+	Docker   *Docker
 	Settings *ezsqlx.ConnectionSettings
 	Resource *dockertest.Resource
 	Version  string
@@ -252,7 +247,7 @@ func (f *Psql) SetUp() error {
 	if err != nil {
 		return err
 	}
-	f.ExitCode = docker.WaitForContainer(f.Docker.Pool, f.Resource)
+	f.ExitCode = WaitForContainer(f.Docker.Pool, f.Resource)
 	containerName := f.Resource.Container.Name[1:]
 	containerID := f.Resource.Container.ID[0:11]
 	if f.ExitCode != 0 && !f.Quiet {
@@ -348,8 +343,7 @@ func (f *PostgresSchema) GetConnection() (*sqlx.DB, error) {
 }
 
 type PostgresWithSchema struct {
-	fixtures.BaseFixture
-	Docker   *docker.Docker
+	Docker   *Docker
 	Settings *ezsqlx.ConnectionSettings
 	Version  string
 	PathGlob string

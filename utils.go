@@ -1,8 +1,7 @@
-package helpers
+package fixtures
 
 import (
 	"math/rand"
-	"path/filepath"
 	"time"
 )
 
@@ -14,9 +13,4 @@ func GenerateString() string {
 		result[i] = chars[rand.Intn(len(chars))]
 	}
 	return string(result)
-}
-
-func GetTestDataPath(name string) string {
-	path := filepath.Join("testdata", name)
-	return path
 }
