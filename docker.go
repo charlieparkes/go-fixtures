@@ -10,11 +10,11 @@ import (
 )
 
 type Docker struct {
+	BaseFixture
 	Name       string
 	NamePrefix string
-
-	Pool    *dockertest.Pool
-	Network *dockertest.Network
+	Pool       *dockertest.Pool
+	Network    *dockertest.Network
 }
 
 func (f *Docker) SetUp() error {

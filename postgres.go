@@ -14,6 +14,7 @@ import (
 )
 
 type Postgres struct {
+	BaseFixture
 	Docker   *Docker
 	Settings *ezsqlx.ConnectionSettings
 	Resource *dockertest.Resource
@@ -210,13 +211,13 @@ func (f *Postgres) WaitForReady() error {
 }
 
 type Psql struct {
+	BaseFixture
 	Docker   *Docker
 	Settings *ezsqlx.ConnectionSettings
 	Resource *dockertest.Resource
 	Version  string
 	Mounts   []string
 	Cmd      []string
-
 	Quiet    bool
 	ExitCode int
 }
@@ -263,8 +264,8 @@ func (f *Psql) TearDown() error {
 }
 
 type PostgresDatabaseCopy struct {
-	Postgres *Postgres
-
+	BaseFixture
+	Postgres     *Postgres
 	Settings     *ezsqlx.ConnectionSettings
 	DatabaseName string
 }
@@ -295,8 +296,8 @@ func (f *PostgresDatabaseCopy) GetConnection() (*sqlx.DB, error) {
 }
 
 type PostgresSchema struct {
-	Postgres *Postgres
-
+	BaseFixture
+	Postgres     *Postgres
 	Settings     *ezsqlx.ConnectionSettings
 	DatabaseName string
 	PathGlob     string
@@ -343,11 +344,11 @@ func (f *PostgresSchema) GetConnection() (*sqlx.DB, error) {
 }
 
 type PostgresWithSchema struct {
+	BaseFixture
 	Docker   *Docker
 	Settings *ezsqlx.ConnectionSettings
 	Version  string
 	PathGlob string
-
 	Postgres *Postgres
 	Schema   *PostgresSchema
 }

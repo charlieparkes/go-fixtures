@@ -12,6 +12,7 @@ func (f *BaseFixture) Type() string {
 }
 
 type Fixture interface {
+	Type() string
 	SetUp() error
 	TearDown() error
 }
