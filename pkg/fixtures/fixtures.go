@@ -15,8 +15,13 @@ type Fixtures struct {
 	order []string
 }
 
-func (f *Fixtures) Add(fixture Fixture) error {
-	return f.AddByName(helpers.GenerateString(), fixture)
+func (f *Fixtures) Add(fixtures ...Fixture) error {
+	for _, fix := range fixtures {
+		if err := f.AddByName(helpers.GenerateString(), fix); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (f *Fixtures) AddByName(name string, fixture Fixture) error {
@@ -44,9 +49,11 @@ func (f *Fixtures) Get(name string) Fixture {
 	return f.store[name]
 }
 
-func (f *Fixtures) SetUp() {
+func (f *Fixtures) SetUp() error {
+	var err error
 	for name, fixture := range f.store {
-		err := fixture.SetUp()
+		err = fixture.SetUp()
+
 		var status int
 		if err != nil {
 			status = 1
@@ -57,21 +64,32 @@ func (f *Fixtures) SetUp() {
 		if env.Get().Debug {
 			fmt.Printf("%v Setup %v<%v>\n", symbols.GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 		}
+
+		if err != nil {
+			return err
+		}
 	}
+	return err
 }
 
-func (f *Fixtures) TearDown() {
+func (f *Fixtures) TearDown() error {
 	fixtureNames := []string{}
 	for _, name := range f.order {
 		fixtureNames = append([]string{name}, fixtureNames...)
 	}
+	var firstErr error
 	for _, name := range fixtureNames {
 		fixture := f.Get(name)
 		err := fixture.TearDown()
+
 		var status int
 		if err != nil {
 			status = 1
 			log.Fatalf("Failed to teardown fixture '%v': %v", name, err)
+
+			if firstErr == nil {
+				firstErr = err
+			}
 		} else {
 			status = 0
 		}
@@ -79,4 +97,6 @@ func (f *Fixtures) TearDown() {
 			fmt.Printf("%v Teardown %v<%v>\n", symbols.GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 		}
 	}
+
+	return firstErr
 }
