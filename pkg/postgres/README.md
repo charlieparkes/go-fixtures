@@ -46,9 +46,8 @@ func GetDatabaseFixture() *fixtures.Fixtures {
 
 ```go
 func CopySchema(f *fixtures.Fixtures) (*sqlx.DB, error) {
-	databaseFixture := f.Get("db_name").(*fixtures.PostgresWithSchema)
 	tmpdb := &fixtures.PostgresDatabaseCopy{
-		Postgres: databaseFixture.Postgres.Postgres,
+		Postgres: f.Get("db_name").(*fixtures.PostgresWithSchema).Postgres,
 	}
 	err := tmpdb.SetUp()
 	if err != nil {
