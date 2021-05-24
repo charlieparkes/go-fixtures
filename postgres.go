@@ -135,7 +135,7 @@ func (f *Postgres) LoadSql(path string) error {
 			return err
 		}
 		name := filepath.Base(p)
-		fmt.Printf("Load %v data into database %v on server %v .. ", name, f.Settings.Database, f.GetHostName())
+		fmt.Printf("Load %v into database %v on server %v .. ", name, f.Settings.Database, f.GetHostName())
 		exitCode, err := f.Psql([]string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false)
 		fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 		if err != nil {
@@ -169,14 +169,12 @@ func (f *Postgres) WaitForReady() error {
 	if err := f.Docker.Pool.Retry(func() error {
 		var err error
 
-		// get port
 		port := f.Resource.GetPort("5432/tcp")
 		if port == "" {
 			return fmt.Errorf("could not get port from container: %+v", f.Resource.Container)
 		}
 		f.Settings.Port = port
 
-		// pg_isready
 		status, err := f.Psql([]string{"pg_isready"}, []string{}, true)
 		if err != nil {
 			return err
@@ -194,14 +192,12 @@ func (f *Postgres) WaitForReady() error {
 			return fmt.Errorf("postgres is not ready: (%v) %v", status, reason)
 		}
 
-		// open
 		db, err := f.Settings.Open()
 		if err != nil {
 			return err
 		}
 		defer db.Close()
 
-		// ping
 		return db.Ping()
 	}); err != nil {
 		log.Fatalf("could not connect to docker: %s", err)
