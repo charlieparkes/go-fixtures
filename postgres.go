@@ -147,7 +147,7 @@ func (f *Postgres) LoadSql(path string) error {
 
 	if info, err := os.Stat(path); err == nil {
 		if info.IsDir() {
-			files, err := filepath.Glob("*.sql")
+			files, err := filepath.Glob(filepath.Join(path, "*.sql"))
 			if err != nil {
 				return err
 			}
