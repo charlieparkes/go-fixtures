@@ -32,12 +32,12 @@ import (
 func GetDatabaseFixture() *fixtures.Fixtures {
 	f := &fixtures.Fixtures{}
 	docker := &fixtures.Docker{}
-  f.Add(docker)
+    f.Add(docker)
 	db := &fixtures.PostgresWithSchema{
 		Docker: &docker,
-    FileGlob: "./migrations/*.sql",
+        FileGlob: "./migrations/*.sql",
 	}
-  f.AddByName("db_name", db)
+    f.AddByName("db_name", db)
 	return f
 }
 ```
@@ -55,9 +55,9 @@ func CopySchema(f *fixtures.Fixtures) (*sqlx.DB, error) {
 		return nil, err
 	}
 	db, err := tmpdb.GetConnection()
-  if err != nil {
-    return nil, err
-  }
+    if err != nil {
+        return nil, err
+    }
 	return db, nil
 }
 ```
@@ -84,7 +84,8 @@ func TestMain(m *testing.M) {
 
 func TestThing(t *testing.T) {
 	db, err := test.CopySchema(fixtures)
-  assert.NoErr(t, err)
+    assert.NoErr(t, err)
+	defer db.Close()
 	db.Ping()
 }
 ```
