@@ -13,6 +13,8 @@ import (
 	"github.com/ory/dockertest/v3"
 )
 
+const DEFAULT_POSTGRES_VERSION = "13-alpine"
+
 type Postgres struct {
 	BaseFixture
 	Docker   *Docker
@@ -24,7 +26,7 @@ type Postgres struct {
 
 func (f *Postgres) SetUp() error {
 	if f.Version == "" {
-		f.Version = "latest"
+		f.Version = DEFAULT_POSTGRES_VERSION
 	}
 	if f.Settings == nil {
 		f.Settings = &ezsqlx.ConnectionSettings{
@@ -46,7 +48,7 @@ func (f *Postgres) SetUp() error {
 		Networks: []*dockertest.Network{
 			f.Docker.Network,
 		},
-		Cmd: []string{"-c", "fsync=off"},
+		Cmd: []string{"-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off", "-c", "random_page_cost=1.0"},
 	}
 	resource, err := f.Docker.Pool.RunWithOptions(&opts)
 	f.Resource = resource
@@ -108,21 +110,41 @@ func (f *Postgres) CreateDatabase(name string) (string, error) {
 	if name == "" {
 		name = namesgenerator.GetRandomName(0)
 	}
-	fmt.Printf("Create database %v on server %v .. ", name, f.GetHostName())
+	fmt.Printf("Create database %v on container %v .. ", name, f.GetHostName())
 	exitCode, err := f.Psql([]string{"createdb", "--template=template0", name}, []string{}, false)
 	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 	return name, err
 }
 
 func (f *Postgres) CopyDatabase(source string, target string) error {
-	fmt.Printf("Copy database %v to %v on server %v .. ", source, target, f.GetHostName())
+	fmt.Printf("Copy database %v to %v on container %v .. ", source, target, f.GetHostName())
 	exitCode, err := f.Psql([]string{"createdb", fmt.Sprintf("--template=%v", source), target}, []string{}, false)
 	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
 func (f *Postgres) DropDatabase(name string) error {
-	fmt.Printf("Drop database %v on server %v .. ", name, f.GetHostName())
+	fmt.Printf("Drop database %v on container %v .. ", name, f.GetHostName())
+
+	db, err := f.GetConnection(name)
+	if err != nil {
+		return err
+	}
+
+	// Revoke future connections.
+	if _, err := db.Exec(fmt.Sprintf("REVOKE CONNECT ON DATABASE %v FROM public", name)); err != nil {
+		return err
+	}
+
+	// Terminate all connections.
+	if _, err := db.Exec("SELECT pid, pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()"); err != nil {
+		return err
+	}
+
+	if err := db.Close(); err != nil {
+		return err
+	}
+
 	exitCode, err := f.Psql([]string{"dropdb", name}, []string{}, false)
 	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 	return err
@@ -135,7 +157,7 @@ func (f *Postgres) LoadSql(path string) error {
 			return err
 		}
 		name := filepath.Base(p)
-		fmt.Printf("Load %v into database %v on server %v .. ", name, f.Settings.Database, f.GetHostName())
+		fmt.Printf("Load %v into database %v on container %v .. ", name, f.Settings.Database, f.GetHostName())
 		exitCode, err := f.Psql([]string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false)
 		fmt.Printf("%v\n", GetStatusSymbol(exitCode))
 		if err != nil {
@@ -248,9 +270,8 @@ func (f *Psql) SetUp() error {
 	containerName := f.Resource.Container.Name[1:]
 	containerID := f.Resource.Container.ID[0:11]
 	if f.ExitCode != 0 && !f.Quiet {
-		// TODO: use getLogs() - needs some work
 		fmt.Printf("psql (name: %v, id: %v) '%v', exit %v\n", containerName, containerID, f.Cmd, f.ExitCode)
-		return fmt.Errorf("psql exited with error (%v)", f.ExitCode)
+		return fmt.Errorf("psql exited with error (%v): %v", f.ExitCode, getLogs(containerID, f.Docker.Pool))
 	}
 	return err
 }
@@ -267,6 +288,10 @@ type PostgresDatabaseCopy struct {
 }
 
 func (f *PostgresDatabaseCopy) SetUp() error {
+	if f.Postgres == nil {
+		panic("you must provide an initialized Postgres fixture")
+	}
+
 	// Copy the postgres settings and update them to point at the container's docker network IP and new database
 	f.Settings = f.Postgres.Settings.Copy()
 
@@ -352,14 +377,16 @@ type PostgresWithSchema struct {
 func (f *PostgresWithSchema) SetUp() error {
 	var err error
 
-	f.Postgres = &Postgres{
-		Docker:   f.Docker,
-		Settings: f.Settings,
-		Version:  f.Version,
-	}
-	err = f.Postgres.SetUp()
-	if err != nil {
-		return err
+	if f.Postgres == nil {
+		f.Postgres = &Postgres{
+			Docker:   f.Docker,
+			Settings: f.Settings,
+			Version:  f.Version,
+		}
+		err = f.Postgres.SetUp()
+		if err != nil {
+			return err
+		}
 	}
 
 	if f.Settings == nil {
