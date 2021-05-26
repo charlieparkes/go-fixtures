@@ -110,21 +110,21 @@ func (f *Postgres) CreateDatabase(name string) (string, error) {
 	if name == "" {
 		name = namesgenerator.GetRandomName(0)
 	}
-	fmt.Printf("Create database %v on container %v .. ", name, f.GetHostName())
+	debugPrintf("Create database %v on container %v .. ", name, f.GetHostName())
 	exitCode, err := f.Psql([]string{"createdb", "--template=template0", name}, []string{}, false)
-	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
+	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return name, err
 }
 
 func (f *Postgres) CopyDatabase(source string, target string) error {
-	fmt.Printf("Copy database %v to %v on container %v .. ", source, target, f.GetHostName())
+	debugPrintf("Copy database %v to %v on container %v .. ", source, target, f.GetHostName())
 	exitCode, err := f.Psql([]string{"createdb", fmt.Sprintf("--template=%v", source), target}, []string{}, false)
-	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
+	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
 func (f *Postgres) DropDatabase(name string) error {
-	fmt.Printf("Drop database %v on container %v .. ", name, f.GetHostName())
+	debugPrintf("Drop database %v on container %v .. ", name, f.GetHostName())
 
 	db, err := f.GetConnection(name)
 	if err != nil {
@@ -146,7 +146,7 @@ func (f *Postgres) DropDatabase(name string) error {
 	}
 
 	exitCode, err := f.Psql([]string{"dropdb", name}, []string{}, false)
-	fmt.Printf("%v\n", GetStatusSymbol(exitCode))
+	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
@@ -157,9 +157,9 @@ func (f *Postgres) LoadSql(path string) error {
 			return err
 		}
 		name := filepath.Base(p)
-		fmt.Printf("Load %v into database %v on container %v .. ", name, f.Settings.Database, f.GetHostName())
+		debugPrintf("Load %v into database %v on container %v .. ", name, f.Settings.Database, f.GetHostName())
 		exitCode, err := f.Psql([]string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false)
-		fmt.Printf("%v\n", GetStatusSymbol(exitCode))
+		debugPrintf("%v\n", GetStatusSymbol(exitCode))
 		if err != nil {
 			log.Fatalf("Failed to run psql (load sql): %s", err)
 			return err
@@ -270,7 +270,7 @@ func (f *Psql) SetUp() error {
 	containerName := f.Resource.Container.Name[1:]
 	containerID := f.Resource.Container.ID[0:11]
 	if f.ExitCode != 0 && !f.Quiet {
-		fmt.Printf("psql (name: %v, id: %v) '%v', exit %v\n", containerName, containerID, f.Cmd, f.ExitCode)
+		debugPrintf("psql (name: %v, id: %v) '%v', exit %v\n", containerName, containerID, f.Cmd, f.ExitCode)
 		return fmt.Errorf("psql exited with error (%v): %v", f.ExitCode, getLogs(containerID, f.Docker.Pool))
 	}
 	return err

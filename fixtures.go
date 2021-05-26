@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"log"
 	"reflect"
-
-	"github.com/charlieparkes/go-fixtures/internal/env"
 )
 
 type Fixtures struct {
@@ -37,9 +35,7 @@ func (f *Fixtures) AddByName(name string, fixture Fixture) error {
 	} else {
 		status = 0
 	}
-	if env.Get().Debug {
-		fmt.Printf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
-	}
+	debugPrintf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 	return err
 }
 
@@ -59,9 +55,7 @@ func (f *Fixtures) SetUp() error {
 		} else {
 			status = 0
 		}
-		if env.Get().Debug {
-			fmt.Printf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
-		}
+		debugPrintf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 
 		if err != nil {
 			return err
@@ -91,9 +85,7 @@ func (f *Fixtures) TearDown() error {
 		} else {
 			status = 0
 		}
-		if env.Get().Debug {
-			fmt.Printf("%v Teardown %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
-		}
+		debugPrintf("%v Teardown %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 	}
 
 	return firstErr
