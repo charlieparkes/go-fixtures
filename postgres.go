@@ -13,18 +13,24 @@ import (
 	"github.com/ory/dockertest/v3"
 )
 
+const DEFAULT_POSTGRES_REPO = "postgres"
 const DEFAULT_POSTGRES_VERSION = "13-alpine"
 
 type Postgres struct {
 	BaseFixture
-	Docker   *Docker
-	Settings *ezsqlx.ConnectionSettings
-	Resource *dockertest.Resource
-	Version  string
-	Expire   uint
+	Docker       *Docker
+	Settings     *ezsqlx.ConnectionSettings
+	Resource     *dockertest.Resource
+	Repo         string
+	Version      string
+	Expire       uint
+	SkipTearDown bool
 }
 
 func (f *Postgres) SetUp() error {
+	if f.Repo == "" {
+		f.Repo = DEFAULT_POSTGRES_REPO
+	}
 	if f.Version == "" {
 		f.Version = DEFAULT_POSTGRES_VERSION
 	}
@@ -38,7 +44,7 @@ func (f *Postgres) SetUp() error {
 		}
 	}
 	opts := dockertest.RunOptions{
-		Repository: "postgres",
+		Repository: f.Repo,
 		Tag:        f.Version,
 		Env: []string{
 			"POSTGRES_USER=" + f.Settings.User,
@@ -48,7 +54,15 @@ func (f *Postgres) SetUp() error {
 		Networks: []*dockertest.Network{
 			f.Docker.Network,
 		},
-		Cmd: []string{"-c", "fsync=off", "-c", "synchronous_commit=off", "-c", "full_page_writes=off", "-c", "random_page_cost=1.0"},
+		Cmd: []string{
+			// https://www.postgresql.org/docs/current/non-durability.html
+			"-c", "fsync=off",
+			"-c", "synchronous_commit=off",
+			"-c", "full_page_writes=off",
+			"-c", "random_page_cost=1.1",
+			"-c", fmt.Sprintf("shared_buffers=%vMB", memoryMB()/8),
+			"-c", fmt.Sprintf("work_mem=%vMB", memoryMB()/8),
+		},
 	}
 	resource, err := f.Docker.Pool.RunWithOptions(&opts)
 	f.Resource = resource
@@ -68,7 +82,12 @@ func (f *Postgres) SetUp() error {
 }
 
 func (f *Postgres) TearDown() error {
-	return f.Docker.Pool.Purge(f.Resource)
+	if f.SkipTearDown {
+		return nil
+	}
+	wg.Add(1)
+	go purge(f.Docker.Pool, f.Resource)
+	return nil
 }
 
 func (f *Postgres) GetConnection(dbname string) (*sqlx.DB, error) {
@@ -87,15 +106,16 @@ func (f *Postgres) GetHostName() string {
 	return GetHostName(f.Resource)
 }
 
-func (f *Postgres) Psql(cmd []string, mounts []string, quiet bool) (int, error) {
+func (f *Postgres) Psql(cmd []string, mounts []string, quiet bool, skipTearDown bool) (int, error) {
 	// We're going to connect over the docker network
 	settings := f.Settings.Copy()
 	settings.Host = f.GetHostIP()
 	psql := &Psql{
-		Docker:   f.Docker,
-		Settings: settings,
-		Mounts:   mounts,
-		Cmd:      cmd,
+		Docker:       f.Docker,
+		Settings:     settings,
+		Mounts:       mounts,
+		Cmd:          cmd,
+		SkipTearDown: skipTearDown,
 	}
 	err := psql.SetUp()
 	if err != nil && env.Get().Debug {
@@ -111,14 +131,14 @@ func (f *Postgres) CreateDatabase(name string) (string, error) {
 		name = namesgenerator.GetRandomName(0)
 	}
 	debugPrintf("Create database %v on container %v .. ", name, f.GetHostName())
-	exitCode, err := f.Psql([]string{"createdb", "--template=template0", name}, []string{}, false)
+	exitCode, err := f.Psql([]string{"createdb", "--template=template0", name}, []string{}, false, false)
 	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return name, err
 }
 
 func (f *Postgres) CopyDatabase(source string, target string) error {
 	debugPrintf("Copy database %v to %v on container %v .. ", source, target, f.GetHostName())
-	exitCode, err := f.Psql([]string{"createdb", fmt.Sprintf("--template=%v", source), target}, []string{}, false)
+	exitCode, err := f.Psql([]string{"createdb", fmt.Sprintf("--template=%v", source), target}, []string{}, false, false)
 	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
@@ -145,7 +165,18 @@ func (f *Postgres) DropDatabase(name string) error {
 		return err
 	}
 
-	exitCode, err := f.Psql([]string{"dropdb", name}, []string{}, false)
+	exitCode, err := f.Psql([]string{"dropdb", name}, []string{}, false, false)
+	debugPrintf("%v\n", GetStatusSymbol(exitCode))
+	return err
+}
+
+func (f *Postgres) DumpDatabase(dir string, filename string) error {
+	path := FindPath(dir)
+	if path == "" {
+		panic("DumpDatabase could not resolve path")
+	}
+	debugPrintf("Dump database %v on container %v to %v.. ", f.Settings.Database, f.GetHostName(), path)
+	exitCode, err := f.Psql([]string{"sh", "-c", fmt.Sprintf("pg_dump -Fc -Z0 %v > /tmp/%v", f.Settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false, false)
 	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
@@ -158,7 +189,7 @@ func (f *Postgres) LoadSql(path string) error {
 		}
 		name := filepath.Base(p)
 		debugPrintf("Load %v into database %v on container %v .. ", name, f.Settings.Database, f.GetHostName())
-		exitCode, err := f.Psql([]string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false)
+		exitCode, err := f.Psql([]string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false, false)
 		debugPrintf("%v\n", GetStatusSymbol(exitCode))
 		if err != nil {
 			log.Fatalf("Failed to run psql (load sql): %s", err)
@@ -193,12 +224,15 @@ func (f *Postgres) WaitForReady() error {
 
 		port := f.Resource.GetPort("5432/tcp")
 		if port == "" {
-			return fmt.Errorf("could not get port from container: %+v", f.Resource.Container)
+			err = fmt.Errorf("could not get port from container: %+v", f.Resource.Container)
+			debugPrintln(err)
+			return err
 		}
 		f.Settings.Port = port
 
-		status, err := f.Psql([]string{"pg_isready"}, []string{}, true)
+		status, err := f.Psql([]string{"pg_isready"}, []string{}, true, false)
 		if err != nil {
+			debugPrintln(err)
 			return err
 		}
 		if status != 0 {
@@ -211,18 +245,21 @@ func (f *Postgres) WaitForReady() error {
 			case 3:
 				reason = "no attempt was made"
 			}
-			return fmt.Errorf("postgres is not ready: (%v) %v", status, reason)
+			err = fmt.Errorf("postgres is not ready: (%v) %v", status, reason)
+			debugPrintln(err)
+			return err
 		}
 
 		db, err := f.Settings.Open()
 		if err != nil {
+			debugPrintln(err)
 			return err
 		}
 		defer db.Close()
 
 		return db.Ping()
 	}); err != nil {
-		log.Fatalf("could not connect to docker: %s", err)
+		log.Fatalf("gave up waiting for postgres: %s", err)
 	}
 
 	return nil
@@ -230,14 +267,15 @@ func (f *Postgres) WaitForReady() error {
 
 type Psql struct {
 	BaseFixture
-	Docker   *Docker
-	Settings *ezsqlx.ConnectionSettings
-	Resource *dockertest.Resource
-	Version  string
-	Mounts   []string
-	Cmd      []string
-	Quiet    bool
-	ExitCode int
+	Docker       *Docker
+	Settings     *ezsqlx.ConnectionSettings
+	Resource     *dockertest.Resource
+	Version      string
+	Mounts       []string
+	Cmd          []string
+	Quiet        bool
+	ExitCode     int
+	SkipTearDown bool
 }
 
 func (f *Psql) SetUp() error {
@@ -277,7 +315,12 @@ func (f *Psql) SetUp() error {
 }
 
 func (f *Psql) TearDown() error {
-	return f.Docker.Pool.Purge(f.Resource)
+	if f.SkipTearDown {
+		return nil
+	}
+	wg.Add(1)
+	go purge(f.Docker.Pool, f.Resource)
+	return nil
 }
 
 type PostgresDatabaseCopy struct {
@@ -285,6 +328,7 @@ type PostgresDatabaseCopy struct {
 	Postgres     *Postgres
 	Settings     *ezsqlx.ConnectionSettings
 	DatabaseName string
+	SkipTearDown bool
 }
 
 func (f *PostgresDatabaseCopy) SetUp() error {
@@ -309,6 +353,9 @@ func (f *PostgresDatabaseCopy) SetUp() error {
 }
 
 func (f *PostgresDatabaseCopy) TearDown() error {
+	if f.SkipTearDown {
+		return nil
+	}
 	return f.Postgres.DropDatabase(f.DatabaseName)
 }
 
@@ -322,6 +369,7 @@ type PostgresSchema struct {
 	Settings     *ezsqlx.ConnectionSettings
 	DatabaseName string
 	PathGlob     string
+	SkipTearDown bool
 }
 
 func (f *PostgresSchema) SetUp() error {
@@ -357,6 +405,9 @@ func (f *PostgresSchema) SetUp() error {
 }
 
 func (f *PostgresSchema) TearDown() error {
+	if f.SkipTearDown {
+		return nil
+	}
 	return f.Postgres.DropDatabase(f.DatabaseName)
 }
 
@@ -397,6 +448,7 @@ func (f *PostgresWithSchema) SetUp() error {
 		Postgres:     f.Postgres,
 		DatabaseName: f.Settings.Database,
 		PathGlob:     f.PathGlob,
+		SkipTearDown: true,
 	}
 	err = f.Schema.SetUp()
 
