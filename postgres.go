@@ -25,6 +25,7 @@ type Postgres struct {
 	Version      string
 	Expire       uint
 	SkipTearDown bool
+	Mounts       []string
 }
 
 func (f *Postgres) SetUp() error {
@@ -39,7 +40,7 @@ func (f *Postgres) SetUp() error {
 			Host:       "localhost",
 			User:       "postgres",
 			Password:   GenerateString(),
-			Database:   f.Docker.Name,
+			Database:   f.Docker.NamePrefix,
 			DisableSSL: true,
 		}
 	}
@@ -63,6 +64,7 @@ func (f *Postgres) SetUp() error {
 			"-c", fmt.Sprintf("shared_buffers=%vMB", memoryMB()/8),
 			"-c", fmt.Sprintf("work_mem=%vMB", memoryMB()/8),
 		},
+		Mounts: f.Mounts,
 	}
 	resource, err := f.Docker.Pool.RunWithOptions(&opts)
 	f.Resource = resource

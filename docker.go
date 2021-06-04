@@ -20,6 +20,10 @@ type Docker struct {
 func (f *Docker) SetUp() error {
 	var err error
 
+	if f.NamePrefix == "" {
+		f.NamePrefix = "test"
+	}
+
 	if f.Name == "" {
 		f.Name = namesgenerator.GetRandomName(0)
 		if f.NamePrefix != "" {
