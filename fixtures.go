@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"log"
 	"reflect"
+	"sync"
 )
+
+var wg sync.WaitGroup
 
 type Fixtures struct {
 	store map[string]Fixture
@@ -88,5 +91,18 @@ func (f *Fixtures) TearDown() error {
 		debugPrintf("%v Teardown %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
 	}
 
+	wg.Wait()
 	return firstErr
+}
+
+// RecoverTearDown returns a deferrable function that will teardown in the event of a panic.
+func (f *Fixtures) RecoverTearDown() func() {
+	return func() {
+		if r := recover(); r != nil {
+			if err := f.TearDown(); err != nil {
+				log.Println("failed to tear down:", err)
+			}
+			panic(r)
+		}
+	}
 }

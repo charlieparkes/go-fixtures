@@ -80,3 +80,8 @@ func getLogs(containerID string, pool *dockertest.Pool) string {
 	}
 	return buf.String()
 }
+
+func purge(p *dockertest.Pool, r *dockertest.Resource) {
+	p.Purge(r)
+	wg.Done()
+}
