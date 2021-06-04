@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cenkalti/backoff/v3"
 	"github.com/charlieparkes/go-fixtures/internal/env"
 )
 
@@ -41,6 +42,13 @@ func FindPath(containing string) string {
 		}
 		lastDir = newDir
 	}
+}
+
+func Retry(op func() error) error {
+	bo := backoff.NewExponentialBackOff()
+	bo.MaxInterval = time.Second
+	bo.MaxElapsedTime = time.Duration(time.Second * 15)
+	return backoff.Retry(op, bo)
 }
 
 func debugPrintf(format string, a ...interface{}) (int, error) {

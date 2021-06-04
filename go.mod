@@ -3,6 +3,7 @@ module github.com/charlieparkes/go-fixtures
 go 1.15
 
 require (
+	github.com/cenkalti/backoff/v3 v3.0.0
 	github.com/charlieparkes/ezsqlx v1.0.0
 	github.com/docker/docker v1.13.1
 	github.com/jmoiron/sqlx v1.2.0

@@ -16,20 +16,14 @@ func TestPostgres(t *testing.T) {
 	fixtures.AddByName("docker", d)
 	timer.PrintSplit("Docker")
 
-	// p := &Postgres{
-	// 	Docker: d,
-	// }
-	// fixtures.AddByName("postgres", p)
-	// timer.PrintSplit("Postgres")
-
-	p2 := &PostgresWithSchema{
+	p1 := &PostgresWithSchema{
 		Docker:   d,
 		PathGlob: "./testdata/migrations/*.sql",
 	}
-	fixtures.AddByName("postgres_with_schema", p2)
+	fixtures.AddByName("postgres_with_schema", p1)
 	timer.PrintSplit("PostgresWithSchema")
 
-	db, err := p2.GetConnection()
+	db, err := p1.GetConnection()
 	assert.NoError(t, err)
 
 	tables := []string{}
@@ -38,11 +32,11 @@ func TestPostgres(t *testing.T) {
 	assert.NoError(t, db.Close())
 	timer.PrintSplit("Migrations check")
 
-	p2.Postgres.DumpDatabase("testdata/tmp", "test.pgdump")
+	p1.Postgres.DumpDatabase("testdata/tmp", "test.pgdump")
 	timer.PrintSplit("Postgres.DumpDatabase")
 
 	c := &PostgresDatabaseCopy{
-		Postgres:     p2.Postgres,
+		Postgres:     p1.Postgres,
 		SkipTearDown: true,
 	}
 	fixtures.AddByName("db_copy", c)
@@ -54,5 +48,24 @@ func TestPostgres(t *testing.T) {
 	tables = []string{}
 	assert.NoError(t, db.Select(&tables, "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'information_schema' AND schemaname != 'pg_catalog';"))
 	assert.Len(t, tables, 2)
+	timer.PrintSplit("Migrations check")
+
+	p2 := &Postgres{
+		Docker: d,
+	}
+	fixtures.AddByName("postgres", p2)
+	timer.PrintSplit("Postgres")
+
+	err = p2.RestoreDatabase("testdata/tmp", "test.pgdump")
+	assert.NoError(t, err)
+	timer.PrintSplit("Postgres.RestoreDatabase")
+
+	db, err = p2.GetConnection("")
+	assert.NoError(t, err)
+
+	tables = []string{}
+	assert.NoError(t, db.Select(&tables, "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'information_schema' AND schemaname != 'pg_catalog';"))
+	assert.Len(t, tables, 2)
+	assert.NoError(t, db.Close())
 	timer.PrintSplit("Migrations check")
 }

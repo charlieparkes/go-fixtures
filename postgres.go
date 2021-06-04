@@ -1,6 +1,7 @@
 package fixtures
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -175,10 +176,21 @@ func (f *Postgres) DropDatabase(name string) error {
 func (f *Postgres) DumpDatabase(dir string, filename string) error {
 	path := FindPath(dir)
 	if path == "" {
-		panic("DumpDatabase could not resolve path")
+		return errors.New("could not resolve path")
 	}
 	debugPrintf("Dump database %v on container %v to %v.. ", f.Settings.Database, f.GetHostName(), path)
 	exitCode, err := f.Psql([]string{"sh", "-c", fmt.Sprintf("pg_dump -Fc -Z0 %v > /tmp/%v", f.Settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false, false)
+	debugPrintf("%v\n", GetStatusSymbol(exitCode))
+	return err
+}
+
+func (f *Postgres) RestoreDatabase(dir string, filename string) error {
+	path := FindPath(dir)
+	if path == "" {
+		return errors.New("could not resolve path")
+	}
+	debugPrintf("Restore database %v on container %v to %v.. ", f.Settings.Database, f.GetHostName(), path)
+	exitCode, err := f.Psql([]string{"sh", "-c", fmt.Sprintf("pg_restore --dbname=%v --verbose --single-transaction /tmp/%v", f.Settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false, false)
 	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
@@ -221,7 +233,7 @@ func (f *Postgres) LoadSql(path string) error {
 // https://github.com/ory/dockertest/blob/v3/examples/PostgreSQL.md
 // https://stackoverflow.com/a/63011266
 func (f *Postgres) WaitForReady() error {
-	if err := f.Docker.Pool.Retry(func() error {
+	if err := Retry(func() error {
 		var err error
 
 		port := f.Resource.GetPort("5432/tcp")

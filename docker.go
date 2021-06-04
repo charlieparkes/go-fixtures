@@ -21,7 +21,11 @@ func (f *Docker) SetUp() error {
 	var err error
 
 	if f.NamePrefix == "" {
-		f.NamePrefix = "test"
+		if f.Name != "" {
+			f.NamePrefix = f.Name
+		} else {
+			f.NamePrefix = "test"
+		}
 	}
 
 	if f.Name == "" {
