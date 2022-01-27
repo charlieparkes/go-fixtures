@@ -1,7 +1,6 @@
 package fixtures
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -176,7 +175,7 @@ func (f *Postgres) DropDatabase(name string) error {
 func (f *Postgres) DumpDatabase(dir string, filename string) error {
 	path := FindPath(dir)
 	if path == "" {
-		return errors.New("could not resolve path")
+		return fmt.Errorf("could not resolve path: %v", dir)
 	}
 	debugPrintf("Dump database %v on container %v to %v.. ", f.Settings.Database, f.GetHostName(), path)
 	exitCode, err := f.Psql([]string{"sh", "-c", fmt.Sprintf("pg_dump -Fc -Z0 %v > /tmp/%v", f.Settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false, false)
@@ -187,7 +186,7 @@ func (f *Postgres) DumpDatabase(dir string, filename string) error {
 func (f *Postgres) RestoreDatabase(dir string, filename string) error {
 	path := FindPath(dir)
 	if path == "" {
-		return errors.New("could not resolve path")
+		return fmt.Errorf("could not resolve path: %v", dir)
 	}
 	debugPrintf("Restore database %v on container %v to %v.. ", f.Settings.Database, f.GetHostName(), path)
 	exitCode, err := f.Psql([]string{"sh", "-c", fmt.Sprintf("pg_restore --dbname=%v --verbose --single-transaction /tmp/%v", f.Settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false, false)
