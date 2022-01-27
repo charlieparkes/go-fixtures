@@ -11,12 +11,12 @@ require (
 	github.com/docker/docker v20.10.12+incompatible
 	github.com/jackc/pgx/v4 v4.14.1 // indirect
 	github.com/jmoiron/sqlx v1.3.4
-	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
 	github.com/opencontainers/runc v1.0.3 // indirect
 	github.com/ory/dockertest/v3 v3.8.1
 	github.com/stretchr/testify v1.7.0
+	github.com/tklauser/go-sysconf v0.3.9
 	github.com/vrischmann/envconfig v1.3.0
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce // indirect

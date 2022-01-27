@@ -1,9 +1,10 @@
 package fixtures
 
 import (
+	"fmt"
 	"testing"
 )
 
 func TestMemory(t *testing.T) {
-	_ = memoryMB()
+	fmt.Println("memory MB", memoryMB())
 }
