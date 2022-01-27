@@ -2,7 +2,6 @@ package fixtures
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -205,8 +204,7 @@ func (f *Postgres) LoadSql(path string) error {
 		exitCode, err := f.Psql([]string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false, false)
 		debugPrintf("%v\n", GetStatusSymbol(exitCode))
 		if err != nil {
-			log.Fatalf("Failed to run psql (load sql): %s", err)
-			return err
+			return fmt.Errorf("failed to run psql (load sql): %w", err)
 		}
 		return nil
 	}
@@ -272,7 +270,7 @@ func (f *Postgres) WaitForReady() error {
 
 		return db.Ping()
 	}); err != nil {
-		log.Fatalf("gave up waiting for postgres: %s", err)
+		return fmt.Errorf("gave up waiting for postgres: %w", err)
 	}
 
 	return nil
@@ -317,10 +315,10 @@ func (f *Psql) SetUp() error {
 	if err != nil {
 		return err
 	}
-	f.ExitCode = WaitForContainer(f.Docker.Pool, f.Resource)
+	f.ExitCode, err = WaitForContainer(f.Docker.Pool, f.Resource)
 	containerName := f.Resource.Container.Name[1:]
 	containerID := f.Resource.Container.ID[0:11]
-	if f.ExitCode != 0 && !f.Quiet {
+	if err != nil || f.ExitCode != 0 && !f.Quiet {
 		debugPrintf("psql (name: %v, id: %v) '%v', exit %v\n", containerName, containerID, f.Cmd, f.ExitCode)
 		return fmt.Errorf("psql exited with error (%v): %v", f.ExitCode, getLogs(containerID, f.Docker.Pool))
 	}
@@ -357,8 +355,7 @@ func (f *PostgresDatabaseCopy) SetUp() error {
 		f.DatabaseName = namesgenerator.GetRandomName(0)
 		err := f.Postgres.CopyDatabase(f.Settings.Database, f.DatabaseName)
 		if err != nil {
-			log.Fatalf("Failed to copy database: %s", err)
-			return err
+			return fmt.Errorf("failed to copy database: %w", err)
 		}
 	}
 	f.Settings.Database = f.DatabaseName
@@ -394,8 +391,7 @@ func (f *PostgresSchema) SetUp() error {
 		f.DatabaseName = namesgenerator.GetRandomName(0)
 		_, err := f.Postgres.CreateDatabase(f.DatabaseName)
 		if err != nil {
-			log.Fatalf("Failed to create database: %s", err)
-			return err
+			return fmt.Errorf("failed to create database: %w", err)
 		}
 	}
 	f.Settings.Database = f.DatabaseName
@@ -409,8 +405,7 @@ func (f *PostgresSchema) SetUp() error {
 	for _, path := range files {
 		err := f.Postgres.LoadSql(path)
 		if err != nil {
-			log.Fatalf("Failed to load test data: %s", err)
-			return err
+			return fmt.Errorf("failed to load test data: %w", err)
 		}
 	}
 

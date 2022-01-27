@@ -2,6 +2,7 @@ package fixtures
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 
 	"github.com/docker/docker/pkg/namesgenerator"
@@ -40,7 +41,7 @@ func (f *Docker) SetUp() error {
 	}
 
 	if f.Network, err = f.Pool.CreateNetwork(f.Name); err != nil {
-		log.Fatalf("Failed to create docker network: %v", err)
+		return fmt.Errorf("failed to create docker network: %w", err)
 	}
 
 	return nil
@@ -53,12 +54,12 @@ func (f *Docker) TearDown() error {
 	return nil
 }
 
-func WaitForContainer(pool *dockertest.Pool, resource *dockertest.Resource) int {
+func WaitForContainer(pool *dockertest.Pool, resource *dockertest.Resource) (int, error) {
 	exitCode, err := pool.Client.WaitContainer(resource.Container.ID)
 	if err != nil {
-		log.Fatalf("Unable to wait for container: %s", err)
+		err = fmt.Errorf("unable to wait for container: %w", err)
 	}
-	return exitCode
+	return exitCode, err
 }
 
 func GetHostIP(resource *dockertest.Resource, network *dockertest.Network) string {
