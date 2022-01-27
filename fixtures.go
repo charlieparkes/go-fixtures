@@ -34,7 +34,7 @@ func (f *Fixtures) AddByName(name string, fixture Fixture) error {
 	var status int
 	if err != nil {
 		status = 1
-		log.Fatalf("Failed to setup fixture '%v': %v", name, err)
+		return fmt.Errorf("failed to setup fixture '%v': %w", name, err)
 	} else {
 		status = 0
 	}
@@ -54,7 +54,7 @@ func (f *Fixtures) SetUp() error {
 		var status int
 		if err != nil {
 			status = 1
-			log.Fatalf("Failed to setup fixture '%v': %v", name, err)
+			return fmt.Errorf("failed to setup fixture '%v': %w", name, err)
 		} else {
 			status = 0
 		}
@@ -80,7 +80,7 @@ func (f *Fixtures) TearDown() error {
 		var status int
 		if err != nil {
 			status = 1
-			log.Fatalf("Failed to teardown fixture '%v': %v", name, err)
+			log.Printf("Failed to teardown fixture '%v': %v", name, err)
 
 			if firstErr == nil {
 				firstErr = err
