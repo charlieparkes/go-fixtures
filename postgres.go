@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/charlieparkes/ezsqlx"
 	"github.com/charlieparkes/go-fixtures/internal/env"
@@ -22,7 +23,8 @@ type Postgres struct {
 	Resource     *dockertest.Resource
 	Repo         string
 	Version      string
-	Expire       uint
+	ExpireAfter  uint // seconds, default 600
+	TimeoutAfter uint // seconds, default 30
 	SkipTearDown bool
 	Mounts       []string
 }
@@ -72,12 +74,15 @@ func (f *Postgres) SetUp() error {
 	}
 
 	// Tell docker to kill the container after an unreasonable amount of test time to prevent orphans.
-	if f.Expire == 0 {
-		f.Expire = 600
+	if f.ExpireAfter == 0 {
+		f.ExpireAfter = 600
 	}
-	f.Resource.Expire(f.Expire)
+	f.Resource.Expire(f.ExpireAfter)
 
-	f.WaitForReady()
+	if f.TimeoutAfter == 0 {
+		f.TimeoutAfter = 30
+	}
+	f.WaitForReady(time.Second * time.Duration(f.TimeoutAfter))
 
 	return nil
 }
@@ -229,8 +234,8 @@ func (f *Postgres) LoadSql(path string) error {
 
 // https://github.com/ory/dockertest/blob/v3/examples/PostgreSQL.md
 // https://stackoverflow.com/a/63011266
-func (f *Postgres) WaitForReady() error {
-	if err := Retry(func() error {
+func (f *Postgres) WaitForReady(d time.Duration) error {
+	if err := Retry(d, func() error {
 		var err error
 
 		port := f.Resource.GetPort("5432/tcp")
