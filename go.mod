@@ -1,12 +1,11 @@
-module github.com/charlieparkes/go-fixtures
+module github.com/charlieparkes/go-fixtures/v2
 
 go 1.17
 
 require (
 	github.com/cenkalti/backoff/v3 v3.2.2
-	github.com/charlieparkes/ezsqlx v1.0.1
 	github.com/docker/docker v20.10.12+incompatible
-	github.com/jmoiron/sqlx v1.3.4
+	github.com/jackc/pgx/v4 v4.14.1
 	github.com/ory/dockertest/v3 v3.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tklauser/go-sysconf v0.3.9
@@ -18,8 +17,6 @@ require (
 	github.com/Microsoft/go-winio v0.5.1 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/cenkalti/backoff/v4 v4.1.2 // indirect
-	github.com/charlieparkes/go-helpers v0.0.2 // indirect
-	github.com/charlieparkes/go-structs v1.0.0 // indirect
 	github.com/containerd/continuity v0.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/cli v20.10.12+incompatible // indirect
@@ -35,7 +32,6 @@ require (
 	github.com/jackc/pgproto3/v2 v2.2.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/pgtype v1.9.1 // indirect
-	github.com/jackc/pgx/v4 v4.14.1 // indirect
 	github.com/mitchellh/mapstructure v1.4.3 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
@@ -44,13 +40,13 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
-	github.com/tklauser/numcpus v0.3.0 // indirect
+	github.com/tklauser/numcpus v0.4.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
-	golang.org/x/crypto v0.0.0-20220126234351-aa10faf2a1f8 // indirect
-	golang.org/x/net v0.0.0-20220127074510-2fabfed7e28f // indirect
-	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
+	golang.org/x/crypto v0.0.0-20220131195533-30dcbda58838 // indirect
+	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
+	golang.org/x/sys v0.0.0-20220128215802-99c3d69c2c27 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect

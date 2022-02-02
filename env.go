@@ -1,4 +1,4 @@
-package env
+package fixtures
 
 import (
 	"log"
@@ -6,19 +6,19 @@ import (
 	"github.com/vrischmann/envconfig"
 )
 
-type Environment struct {
+type environment struct {
 	Debug bool `envconfig:"default=false"`
 }
 
-var env *Environment
+var env *environment
 
 func init() {
-	env = &Environment{}
+	env = &environment{}
 	if err := envconfig.Init(env); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func Get() *Environment {
+func getEnv() *environment {
 	return env
 }

@@ -1,28 +1,28 @@
-package test
+package fixtures
 
 import (
 	"fmt"
 	"time"
 )
 
-func NewTimer() *Timer {
-	t := &Timer{}
+func newTimer() *timer {
+	t := &timer{}
 	t.Start()
 	return t
 }
 
-type Timer struct {
+type timer struct {
 	start      time.Time
 	end        *time.Time
 	splitStart *time.Time
 	splits     []time.Duration
 }
 
-func (t *Timer) Start() {
+func (t *timer) Start() {
 	t.start = time.Now()
 }
 
-func (t *Timer) split(ts time.Time) {
+func (t *timer) split(ts time.Time) {
 	if t.splitStart == nil {
 		t.splitStart = &t.start
 	}
@@ -30,16 +30,16 @@ func (t *Timer) split(ts time.Time) {
 	t.splitStart = &ts
 }
 
-func (t *Timer) Split() {
+func (t *timer) Split() {
 	t.split(time.Now())
 }
 
-func (t *Timer) PrintSplit(msg string) {
+func (t *timer) PrintSplit(msg string) {
 	t.Split()
 	fmt.Printf("%v: %v\n", msg, t.splits[len(t.splits)-1])
 }
 
-func (t *Timer) Stop() time.Time {
+func (t *timer) Stop() time.Time {
 	if t.end == nil {
 		t.end = ref(time.Now())
 		t.split(*t.end)
@@ -47,7 +47,7 @@ func (t *Timer) Stop() time.Time {
 	return *t.end
 }
 
-func (t *Timer) Duration() time.Duration {
+func (t *timer) Duration() time.Duration {
 	return t.start.Sub(t.Stop())
 }
 

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v3"
-	"github.com/charlieparkes/go-fixtures/internal/env"
 )
 
 func GenerateString() string {
@@ -52,14 +51,14 @@ func Retry(d time.Duration, op func() error) error {
 }
 
 func debugPrintf(format string, a ...interface{}) (int, error) {
-	if env.Get().Debug {
+	if getEnv().Debug {
 		return fmt.Printf(format, a...)
 	}
 	return 0, nil
 }
 
 func debugPrintln(i ...interface{}) (int, error) {
-	if env.Get().Debug {
+	if getEnv().Debug {
 		return fmt.Println(i...)
 	}
 	return 0, nil
