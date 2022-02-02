@@ -2,6 +2,7 @@ package fixtures
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 
@@ -18,7 +19,7 @@ type Docker struct {
 	Network    *dockertest.Network
 }
 
-func (f *Docker) SetUp() error {
+func (f *Docker) SetUp(ctx context.Context) error {
 	var err error
 
 	if f.NamePrefix == "" {
@@ -47,7 +48,7 @@ func (f *Docker) SetUp() error {
 	return nil
 }
 
-func (f *Docker) TearDown() error {
+func (f *Docker) TearDown(context.Context) error {
 	if err := f.Network.Close(); err != nil {
 		return err
 	}

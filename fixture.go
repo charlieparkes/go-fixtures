@@ -1,6 +1,7 @@
 package fixtures
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 )
@@ -13,6 +14,6 @@ func (f *BaseFixture) Type() string {
 
 type Fixture interface {
 	Type() string
-	SetUp() error
-	TearDown() error
+	SetUp(context.Context) error
+	TearDown(context.Context) error
 }

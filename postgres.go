@@ -1,15 +1,15 @@
 package fixtures
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/charlieparkes/ezsqlx"
 	"github.com/charlieparkes/go-fixtures/internal/env"
 	"github.com/docker/docker/pkg/namesgenerator"
-	"github.com/jmoiron/sqlx"
+	"github.com/jackc/pgx/v4"
 	"github.com/ory/dockertest/v3"
 )
 
@@ -19,7 +19,7 @@ const DEFAULT_POSTGRES_VERSION = "13-alpine"
 type Postgres struct {
 	BaseFixture
 	Docker       *Docker
-	Settings     *ezsqlx.ConnectionSettings
+	Settings     *ConnectionSettings
 	Resource     *dockertest.Resource
 	Repo         string
 	Version      string
@@ -29,7 +29,7 @@ type Postgres struct {
 	Mounts       []string
 }
 
-func (f *Postgres) SetUp() error {
+func (f *Postgres) SetUp(ctx context.Context) error {
 	if f.Repo == "" {
 		f.Repo = DEFAULT_POSTGRES_REPO
 	}
@@ -37,7 +37,7 @@ func (f *Postgres) SetUp() error {
 		f.Version = DEFAULT_POSTGRES_VERSION
 	}
 	if f.Settings == nil {
-		f.Settings = &ezsqlx.ConnectionSettings{
+		f.Settings = &ConnectionSettings{
 			Host:       "localhost",
 			User:       "postgres",
 			Password:   GenerateString(),
@@ -82,12 +82,12 @@ func (f *Postgres) SetUp() error {
 	if f.TimeoutAfter == 0 {
 		f.TimeoutAfter = 30
 	}
-	f.WaitForReady(time.Second * time.Duration(f.TimeoutAfter))
+	f.WaitForReady(ctx, time.Second*time.Duration(f.TimeoutAfter))
 
 	return nil
 }
 
-func (f *Postgres) TearDown() error {
+func (f *Postgres) TearDown(ctx context.Context) error {
 	if f.SkipTearDown {
 		return nil
 	}
@@ -96,12 +96,12 @@ func (f *Postgres) TearDown() error {
 	return nil
 }
 
-func (f *Postgres) GetConnection(dbname string) (*sqlx.DB, error) {
+func (f *Postgres) GetConnection(ctx context.Context, dbname string) (*pgx.Conn, error) {
 	settings := f.Settings.Copy()
 	if dbname != "" {
 		settings.Database = dbname
 	}
-	return settings.Init()
+	return settings.Connect(ctx)
 }
 
 func (f *Postgres) GetHostIP() string {
@@ -112,7 +112,7 @@ func (f *Postgres) GetHostName() string {
 	return GetHostName(f.Resource)
 }
 
-func (f *Postgres) Psql(cmd []string, mounts []string, quiet bool, skipTearDown bool) (int, error) {
+func (f *Postgres) Psql(ctx context.Context, cmd []string, mounts []string, quiet bool, skipTearDown bool) (int, error) {
 	// We're going to connect over the docker network
 	settings := f.Settings.Copy()
 	settings.Host = f.GetHostIP()
@@ -123,82 +123,81 @@ func (f *Postgres) Psql(cmd []string, mounts []string, quiet bool, skipTearDown 
 		Cmd:          cmd,
 		SkipTearDown: skipTearDown,
 	}
-	err := psql.SetUp()
+	err := psql.SetUp(ctx)
 	if err != nil && env.Get().Debug {
 		// If there was an issue, and debug is enabled, don't destroy the container.
 		return psql.ExitCode, err
 	}
-	psql.TearDown()
+	psql.TearDown(ctx)
 	return psql.ExitCode, err
 }
 
-func (f *Postgres) CreateDatabase(name string) (string, error) {
+func (f *Postgres) CreateDatabase(ctx context.Context, name string) (string, error) {
 	if name == "" {
 		name = namesgenerator.GetRandomName(0)
 	}
 	debugPrintf("Create database %v on container %v .. ", name, f.GetHostName())
-	exitCode, err := f.Psql([]string{"createdb", "--template=template0", name}, []string{}, false, false)
+	exitCode, err := f.Psql(ctx, []string{"createdb", "--template=template0", name}, []string{}, false, false)
 	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return name, err
 }
 
-func (f *Postgres) CopyDatabase(source string, target string) error {
+func (f *Postgres) CopyDatabase(ctx context.Context, source string, target string) error {
 	debugPrintf("Copy database %v to %v on container %v .. ", source, target, f.GetHostName())
-	exitCode, err := f.Psql([]string{"createdb", fmt.Sprintf("--template=%v", source), target}, []string{}, false, false)
+	exitCode, err := f.Psql(ctx, []string{"createdb", fmt.Sprintf("--template=%v", source), target}, []string{}, false, false)
 	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
-func (f *Postgres) DropDatabase(name string) error {
+func (f *Postgres) DropDatabase(ctx context.Context, name string) error {
 	debugPrintf("Drop database %v on container %v .. ", name, f.GetHostName())
 
-	db, err := f.GetConnection(name)
+	db, err := f.GetConnection(ctx, name)
+	if err != nil {
+		return err
+	}
+	defer db.Close(ctx)
+
+	// Revoke future connections.
+	_, err = db.Exec(ctx, fmt.Sprintf("REVOKE CONNECT ON DATABASE %v FROM public", name))
 	if err != nil {
 		return err
 	}
 
-	// Revoke future connections.
-	if _, err := db.Exec(fmt.Sprintf("REVOKE CONNECT ON DATABASE %v FROM public", name)); err != nil {
-		return err
-	}
-
 	// Terminate all connections.
-	if _, err := db.Exec("SELECT pid, pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()"); err != nil {
+	_, err = db.Exec(ctx, "SELECT pid, pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()")
+	if err != nil {
 		return err
 	}
 
-	if err := db.Close(); err != nil {
-		return err
-	}
-
-	exitCode, err := f.Psql([]string{"dropdb", name}, []string{}, false, false)
+	exitCode, err := f.Psql(ctx, []string{"dropdb", name}, []string{}, false, false)
 	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
-func (f *Postgres) DumpDatabase(dir string, filename string) error {
+func (f *Postgres) DumpDatabase(ctx context.Context, dir string, filename string) error {
 	path := FindPath(dir)
 	if path == "" {
 		return fmt.Errorf("could not resolve path: %v", dir)
 	}
 	debugPrintf("Dump database %v on container %v to %v.. ", f.Settings.Database, f.GetHostName(), path)
-	exitCode, err := f.Psql([]string{"sh", "-c", fmt.Sprintf("pg_dump -Fc -Z0 %v > /tmp/%v", f.Settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false, false)
+	exitCode, err := f.Psql(ctx, []string{"sh", "-c", fmt.Sprintf("pg_dump -Fc -Z0 %v > /tmp/%v", f.Settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false, false)
 	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
-func (f *Postgres) RestoreDatabase(dir string, filename string) error {
+func (f *Postgres) RestoreDatabase(ctx context.Context, dir string, filename string) error {
 	path := FindPath(dir)
 	if path == "" {
 		return fmt.Errorf("could not resolve path: %v", dir)
 	}
 	debugPrintf("Restore database %v on container %v to %v.. ", f.Settings.Database, f.GetHostName(), path)
-	exitCode, err := f.Psql([]string{"sh", "-c", fmt.Sprintf("pg_restore --dbname=%v --verbose --single-transaction /tmp/%v", f.Settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false, false)
+	exitCode, err := f.Psql(ctx, []string{"sh", "-c", fmt.Sprintf("pg_restore --dbname=%v --verbose --single-transaction /tmp/%v", f.Settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false, false)
 	debugPrintf("%v\n", GetStatusSymbol(exitCode))
 	return err
 }
 
-func (f *Postgres) LoadSql(path string) error {
+func (f *Postgres) LoadSql(ctx context.Context, path string) error {
 	load := func(p string) error {
 		dir, err := filepath.Abs(filepath.Dir(p))
 		if err != nil {
@@ -206,7 +205,7 @@ func (f *Postgres) LoadSql(path string) error {
 		}
 		name := filepath.Base(p)
 		debugPrintf("Load %v into database %v on container %v .. ", name, f.Settings.Database, f.GetHostName())
-		exitCode, err := f.Psql([]string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false, false)
+		exitCode, err := f.Psql(ctx, []string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false, false)
 		debugPrintf("%v\n", GetStatusSymbol(exitCode))
 		if err != nil {
 			return fmt.Errorf("failed to run psql (load sql): %w", err)
@@ -234,7 +233,7 @@ func (f *Postgres) LoadSql(path string) error {
 
 // https://github.com/ory/dockertest/blob/v3/examples/PostgreSQL.md
 // https://stackoverflow.com/a/63011266
-func (f *Postgres) WaitForReady(d time.Duration) error {
+func (f *Postgres) WaitForReady(ctx context.Context, d time.Duration) error {
 	if err := Retry(d, func() error {
 		var err error
 
@@ -246,7 +245,7 @@ func (f *Postgres) WaitForReady(d time.Duration) error {
 		}
 		f.Settings.Port = port
 
-		status, err := f.Psql([]string{"pg_isready"}, []string{}, true, false)
+		status, err := f.Psql(ctx, []string{"pg_isready"}, []string{}, true, false)
 		if err != nil {
 			debugPrintln(err)
 			return err
@@ -266,14 +265,12 @@ func (f *Postgres) WaitForReady(d time.Duration) error {
 			return err
 		}
 
-		db, err := f.Settings.Open()
+		db, err := f.Settings.Connect(ctx)
 		if err != nil {
 			debugPrintln(err)
 			return err
 		}
-		defer db.Close()
-
-		return db.Ping()
+		return db.Close(ctx)
 	}); err != nil {
 		return fmt.Errorf("gave up waiting for postgres: %w", err)
 	}
@@ -284,7 +281,7 @@ func (f *Postgres) WaitForReady(d time.Duration) error {
 type Psql struct {
 	BaseFixture
 	Docker       *Docker
-	Settings     *ezsqlx.ConnectionSettings
+	Settings     *ConnectionSettings
 	Resource     *dockertest.Resource
 	Version      string
 	Mounts       []string
@@ -294,7 +291,7 @@ type Psql struct {
 	SkipTearDown bool
 }
 
-func (f *Psql) SetUp() error {
+func (f *Psql) SetUp(ctx context.Context) error {
 	if f.Version == "" {
 		f.Version = "latest"
 	}
@@ -330,7 +327,7 @@ func (f *Psql) SetUp() error {
 	return err
 }
 
-func (f *Psql) TearDown() error {
+func (f *Psql) TearDown(ctx context.Context) error {
 	if f.SkipTearDown {
 		return nil
 	}
@@ -342,12 +339,12 @@ func (f *Psql) TearDown() error {
 type PostgresDatabaseCopy struct {
 	BaseFixture
 	Postgres     *Postgres
-	Settings     *ezsqlx.ConnectionSettings
+	Settings     *ConnectionSettings
 	DatabaseName string
 	SkipTearDown bool
 }
 
-func (f *PostgresDatabaseCopy) SetUp() error {
+func (f *PostgresDatabaseCopy) SetUp(ctx context.Context) error {
 	if f.Postgres == nil {
 		panic("you must provide an initialized Postgres fixture")
 	}
@@ -358,7 +355,7 @@ func (f *PostgresDatabaseCopy) SetUp() error {
 	// If no DatabaseName is provided, create a database copy.
 	if f.DatabaseName == "" {
 		f.DatabaseName = namesgenerator.GetRandomName(0)
-		err := f.Postgres.CopyDatabase(f.Settings.Database, f.DatabaseName)
+		err := f.Postgres.CopyDatabase(ctx, f.Settings.Database, f.DatabaseName)
 		if err != nil {
 			return fmt.Errorf("failed to copy database: %w", err)
 		}
@@ -367,34 +364,34 @@ func (f *PostgresDatabaseCopy) SetUp() error {
 	return nil
 }
 
-func (f *PostgresDatabaseCopy) TearDown() error {
+func (f *PostgresDatabaseCopy) TearDown(ctx context.Context) error {
 	if f.SkipTearDown {
 		return nil
 	}
-	return f.Postgres.DropDatabase(f.DatabaseName)
+	return f.Postgres.DropDatabase(ctx, f.DatabaseName)
 }
 
-func (f *PostgresDatabaseCopy) GetConnection() (*sqlx.DB, error) {
-	return f.Postgres.GetConnection(f.DatabaseName)
+func (f *PostgresDatabaseCopy) GetConnection(ctx context.Context) (*pgx.Conn, error) {
+	return f.Postgres.GetConnection(ctx, f.DatabaseName)
 }
 
 type PostgresSchema struct {
 	BaseFixture
 	Postgres     *Postgres
-	Settings     *ezsqlx.ConnectionSettings
+	Settings     *ConnectionSettings
 	DatabaseName string
 	PathGlob     string
 	SkipTearDown bool
 }
 
-func (f *PostgresSchema) SetUp() error {
+func (f *PostgresSchema) SetUp(ctx context.Context) error {
 	// Copy the postgres settings and update them to point at the container's docker network IP and new database
 	f.Settings = f.Postgres.Settings.Copy()
 
 	// If no DatabaseName is provided, create a temp database.
 	if f.DatabaseName == "" {
 		f.DatabaseName = namesgenerator.GetRandomName(0)
-		_, err := f.Postgres.CreateDatabase(f.DatabaseName)
+		_, err := f.Postgres.CreateDatabase(ctx, f.DatabaseName)
 		if err != nil {
 			return fmt.Errorf("failed to create database: %w", err)
 		}
@@ -408,7 +405,7 @@ func (f *PostgresSchema) SetUp() error {
 		return err
 	}
 	for _, path := range files {
-		err := f.Postgres.LoadSql(path)
+		err := f.Postgres.LoadSql(ctx, path)
 		if err != nil {
 			return fmt.Errorf("failed to load test data: %w", err)
 		}
@@ -417,28 +414,28 @@ func (f *PostgresSchema) SetUp() error {
 	return nil
 }
 
-func (f *PostgresSchema) TearDown() error {
+func (f *PostgresSchema) TearDown(ctx context.Context) error {
 	if f.SkipTearDown {
 		return nil
 	}
-	return f.Postgres.DropDatabase(f.DatabaseName)
+	return f.Postgres.DropDatabase(ctx, f.DatabaseName)
 }
 
-func (f *PostgresSchema) GetConnection() (*sqlx.DB, error) {
-	return f.Postgres.GetConnection(f.DatabaseName)
+func (f *PostgresSchema) GetConnection(ctx context.Context) (*pgx.Conn, error) {
+	return f.Postgres.GetConnection(ctx, f.DatabaseName)
 }
 
 type PostgresWithSchema struct {
 	BaseFixture
 	Docker   *Docker
-	Settings *ezsqlx.ConnectionSettings
+	Settings *ConnectionSettings
 	Version  string
 	PathGlob string
 	Postgres *Postgres
 	Schema   *PostgresSchema
 }
 
-func (f *PostgresWithSchema) SetUp() error {
+func (f *PostgresWithSchema) SetUp(ctx context.Context) error {
 	var err error
 
 	if f.Postgres == nil {
@@ -447,7 +444,7 @@ func (f *PostgresWithSchema) SetUp() error {
 			Settings: f.Settings,
 			Version:  f.Version,
 		}
-		err = f.Postgres.SetUp()
+		err = f.Postgres.SetUp(ctx)
 		if err != nil {
 			return err
 		}
@@ -463,18 +460,18 @@ func (f *PostgresWithSchema) SetUp() error {
 		PathGlob:     f.PathGlob,
 		SkipTearDown: true,
 	}
-	err = f.Schema.SetUp()
+	err = f.Schema.SetUp(ctx)
 
 	return err
 }
 
-func (f *PostgresWithSchema) GetConnection() (*sqlx.DB, error) {
-	return f.Schema.GetConnection()
+func (f *PostgresWithSchema) GetConnection(ctx context.Context) (*pgx.Conn, error) {
+	return f.Schema.GetConnection(ctx)
 }
 
-func (f *PostgresWithSchema) TearDown() error {
+func (f *PostgresWithSchema) TearDown(ctx context.Context) error {
 	// Don't bother tearing down schema since it does psql teardown after each run
 	// and we're about to destroy the whole database anyways.
-	// f.PostgresSchema.TearDown()
-	return f.Postgres.TearDown()
+	// f.PostgresSchema.TearDown(ctx)
+	return f.Postgres.TearDown(ctx)
 }

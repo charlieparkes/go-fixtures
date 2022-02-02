@@ -1,6 +1,7 @@
 package fixtures
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -9,9 +10,10 @@ import (
 )
 
 func TestDocker(t *testing.T) {
+	ctx := context.Background()
 	f := Docker{}
-	assert.NoError(t, f.SetUp())
-	defer f.TearDown()
+	assert.NoError(t, f.SetUp(ctx))
+	defer f.TearDown(ctx)
 
 	name := GenerateString()
 	resource, err := f.Pool.RunWithOptions(&dockertest.RunOptions{Name: name, Repository: "crccheck/hello-world", Tag: "latest", Env: nil})

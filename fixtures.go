@@ -1,6 +1,7 @@
 package fixtures
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"reflect"
@@ -14,23 +15,23 @@ type Fixtures struct {
 	order []string
 }
 
-func (f *Fixtures) Add(fixtures ...Fixture) error {
+func (f *Fixtures) Add(ctx context.Context, fixtures ...Fixture) error {
 	for _, fix := range fixtures {
-		if err := f.AddByName(GenerateString(), fix); err != nil {
+		if err := f.AddByName(ctx, GenerateString(), fix); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (f *Fixtures) AddByName(name string, fixture Fixture) error {
+func (f *Fixtures) AddByName(ctx context.Context, name string, fixture Fixture) error {
 	if f.store == nil {
 		f.order = []string{}
 		f.store = map[string]Fixture{}
 	}
 	f.order = append(f.order, name)
 	f.store[name] = fixture
-	err := fixture.SetUp()
+	err := fixture.SetUp(ctx)
 	var status int
 	if err != nil {
 		status = 1
@@ -46,10 +47,10 @@ func (f *Fixtures) Get(name string) Fixture {
 	return f.store[name]
 }
 
-func (f *Fixtures) SetUp() error {
+func (f *Fixtures) SetUp(ctx context.Context) error {
 	var err error
 	for name, fixture := range f.store {
-		err = fixture.SetUp()
+		err = fixture.SetUp(ctx)
 
 		var status int
 		if err != nil {
@@ -67,7 +68,7 @@ func (f *Fixtures) SetUp() error {
 	return err
 }
 
-func (f *Fixtures) TearDown() error {
+func (f *Fixtures) TearDown(ctx context.Context) error {
 	fixtureNames := []string{}
 	for _, name := range f.order {
 		fixtureNames = append([]string{name}, fixtureNames...)
@@ -75,7 +76,7 @@ func (f *Fixtures) TearDown() error {
 	var firstErr error
 	for _, name := range fixtureNames {
 		fixture := f.Get(name)
-		err := fixture.TearDown()
+		err := fixture.TearDown(ctx)
 
 		var status int
 		if err != nil {
@@ -96,10 +97,10 @@ func (f *Fixtures) TearDown() error {
 }
 
 // RecoverTearDown returns a deferrable function that will teardown in the event of a panic.
-func (f *Fixtures) RecoverTearDown() func() {
+func (f *Fixtures) RecoverTearDown(ctx context.Context) func() {
 	return func() {
 		if r := recover(); r != nil {
-			if err := f.TearDown(); err != nil {
+			if err := f.TearDown(ctx); err != nil {
 				log.Println("failed to tear down:", err)
 			}
 			panic(r)

@@ -7,5 +7,9 @@ clean:
 .PHONY: test
 test:
 	@mkdir -p testdata/tmp
-	DEBUG=true go test ./... -v
+	set -o pipefail; DEBUG=true go test ./... -v || ( \
+		([ ! -z "$$(docker container ls -aq)" ] && docker container stop $$(docker container ls -aq)) && \
+		([ ! -z "$$(docker container ls -aq)" ] && docker container rm $$(docker container ls -aq)) && \
+		docker network prune -f \
+	)
 	@rm -rf testdata/tmp
