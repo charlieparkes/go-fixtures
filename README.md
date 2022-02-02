@@ -1,6 +1,6 @@
 # go-fixtures
 
-Why mock when you can just run the damn thing?
+Import `github.com/charlieparkes/go-fixtures/v2`.
 
 Inspired by [pytest](https://github.com/pytest-dev/pytest), go-fixtures provides a collection of fixtures which automagically setup/teardown services.
 
