@@ -44,10 +44,10 @@ func FindPath(containing string) string {
 	}
 }
 
-func Retry(op func() error) error {
+func Retry(d time.Duration, op func() error) error {
 	bo := backoff.NewExponentialBackOff()
 	bo.MaxInterval = time.Second
-	bo.MaxElapsedTime = time.Duration(time.Second * 15)
+	bo.MaxElapsedTime = time.Duration(d)
 	return backoff.Retry(op, bo)
 }
 
