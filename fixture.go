@@ -1,19 +1,19 @@
 package fixtures
 
 import (
-	"context"
-	"fmt"
-	"reflect"
+    "context"
+    "fmt"
+    "reflect"
 )
 
 type BaseFixture struct{}
 
 func (f *BaseFixture) Type() string {
-	return fmt.Sprint(reflect.TypeOf(f).Elem())
+    return fmt.Sprint(reflect.TypeOf(f).Elem())
 }
 
 type Fixture interface {
-	Type() string
-	SetUp(context.Context) error
-	TearDown(context.Context) error
+    Type() string
+    SetUp(context.Context) error
+    TearDown(context.Context) error
 }
