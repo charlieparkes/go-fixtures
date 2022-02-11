@@ -16,3 +16,7 @@
 
 *build-harness*
 tmp/
+
+# IntelliJ / Goland project files
+.idea/
+
