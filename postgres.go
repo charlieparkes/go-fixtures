@@ -37,12 +37,15 @@ func (f *Postgres) SetUp(ctx context.Context) error {
 	}
 	if f.Settings == nil {
 		f.Settings = &ConnectionSettings{
-			Host:       "localhost",
 			User:       "postgres",
 			Password:   GenerateString(),
 			Database:   f.Docker.NamePrefix,
 			DisableSSL: true,
 		}
+	}
+	networks := make([]*dockertest.Network, 0)
+	if f.Docker.Network != nil {
+		networks = append(networks, f.Docker.Network)
 	}
 	opts := dockertest.RunOptions{
 		Repository: f.Repo,
@@ -52,9 +55,7 @@ func (f *Postgres) SetUp(ctx context.Context) error {
 			"POSTGRES_PASSWORD=" + f.Settings.Password,
 			"POSTGRES_DB=" + f.Settings.Database,
 		},
-		Networks: []*dockertest.Network{
-			f.Docker.Network,
-		},
+		Networks: networks,
 		Cmd: []string{
 			// https://www.postgresql.org/docs/current/non-durability.html
 			"-c", "fsync=off",
@@ -66,11 +67,13 @@ func (f *Postgres) SetUp(ctx context.Context) error {
 		},
 		Mounts: f.Mounts,
 	}
-	resource, err := f.Docker.Pool.RunWithOptions(&opts)
-	f.Resource = resource
+	var err error
+	f.Resource, err = f.Docker.Pool.RunWithOptions(&opts)
 	if err != nil {
 		return err
 	}
+
+	f.Settings.Host = GetContainerAddress(f.Resource, f.Docker.Network)
 
 	// Tell docker to kill the container after an unreasonable amount of test time to prevent orphans.
 	if f.ExpireAfter == 0 {
@@ -236,7 +239,7 @@ func (f *Postgres) WaitForReady(ctx context.Context, d time.Duration) error {
 	if err := Retry(d, func() error {
 		var err error
 
-		port := f.Resource.GetPort("5432/tcp")
+		port := GetContainerTcpPort(f.Resource, f.Docker.Network, "5432")
 		if port == "" {
 			err = fmt.Errorf("could not get port from container: %+v", f.Resource.Container)
 			debugPrintln(err)

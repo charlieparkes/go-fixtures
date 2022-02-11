@@ -34,3 +34,7 @@ jobs:
       run: docker pull postgres:13-alpine
     - name: Test
       run: make test
+    - name: Test (Under Docker)
+      run: make test-docker
+    - name: Test (Under Docker w/ host network)
+      run: make test-docker-network
