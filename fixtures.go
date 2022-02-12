@@ -3,14 +3,16 @@ package fixtures
 import (
 	"context"
 	"fmt"
-	"log"
 	"reflect"
 	"sync"
+
+	"go.uber.org/zap"
 )
 
 var wg sync.WaitGroup
 
 type Fixtures struct {
+	log   *zap.Logger
 	store map[string]Fixture
 	order []string
 }
@@ -25,6 +27,7 @@ func (f *Fixtures) Add(ctx context.Context, fixtures ...Fixture) error {
 }
 
 func (f *Fixtures) AddByName(ctx context.Context, name string, fixture Fixture) error {
+	f.log = logger()
 	if f.store == nil {
 		f.order = []string{}
 		f.store = map[string]Fixture{}
@@ -32,14 +35,10 @@ func (f *Fixtures) AddByName(ctx context.Context, name string, fixture Fixture) 
 	f.order = append(f.order, name)
 	f.store[name] = fixture
 	err := fixture.SetUp(ctx)
-	var status int
 	if err != nil {
-		status = 1
 		return fmt.Errorf("failed to setup fixture '%v': %w", name, err)
-	} else {
-		status = 0
 	}
-	debugPrintf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
+	f.log.Debug("setup", zap.String("type", fmt.Sprint(reflect.TypeOf(fixture).Elem())), zap.String("name", name))
 	return err
 }
 
@@ -51,24 +50,16 @@ func (f *Fixtures) SetUp(ctx context.Context) error {
 	var err error
 	for name, fixture := range f.store {
 		err = fixture.SetUp(ctx)
-
-		var status int
 		if err != nil {
-			status = 1
 			return fmt.Errorf("failed to setup fixture '%v': %w", name, err)
-		} else {
-			status = 0
 		}
-		debugPrintf("%v Setup %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
-
-		if err != nil {
-			return err
-		}
+		f.log.Debug("setup", zap.String("type", fmt.Sprint(reflect.TypeOf(fixture).Elem())), zap.String("name", name))
 	}
 	return err
 }
 
 func (f *Fixtures) TearDown(ctx context.Context) error {
+	defer f.log.Sync()
 	fixtureNames := []string{}
 	for _, name := range f.order {
 		fixtureNames = append([]string{name}, fixtureNames...)
@@ -77,19 +68,13 @@ func (f *Fixtures) TearDown(ctx context.Context) error {
 	for _, name := range fixtureNames {
 		fixture := f.Get(name)
 		err := fixture.TearDown(ctx)
-
-		var status int
 		if err != nil {
-			status = 1
-			log.Printf("Failed to teardown fixture '%v': %v", name, err)
-
+			f.log.Warn("failed to teardown fixture", zap.String("fixture", name), zap.Error(err))
 			if firstErr == nil {
 				firstErr = err
 			}
-		} else {
-			status = 0
 		}
-		debugPrintf("%v Teardown %v<%v>\n", GetStatusSymbol(status), fmt.Sprint(reflect.TypeOf(fixture).Elem()), name)
+		f.log.Debug("teardown", zap.String("type", fmt.Sprint(reflect.TypeOf(fixture).Elem())), zap.String("name", name))
 	}
 
 	wg.Wait()
@@ -101,7 +86,7 @@ func (f *Fixtures) RecoverTearDown(ctx context.Context) func() {
 	return func() {
 		if r := recover(); r != nil {
 			if err := f.TearDown(ctx); err != nil {
-				log.Println("failed to tear down:", err)
+				f.log.Warn("failed to tear down", zap.Error(err))
 			}
 			panic(r)
 		}
