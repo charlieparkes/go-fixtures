@@ -30,51 +30,51 @@ func NewPostgres(d *Docker, opts ...PostgresOpt) *Postgres {
 	return f
 }
 
-func PostgresOptDocker(d *Docker) PostgresOpt {
+func PostgresDocker(d *Docker) PostgresOpt {
 	return func(f *Postgres) {
 		f.docker = d
 	}
 }
 
-func PostgresOptSettings(settings *ConnectionSettings) PostgresOpt {
+func PostgresSettings(settings *ConnectionSettings) PostgresOpt {
 	return func(f *Postgres) {
 		f.settings = settings
 	}
 }
 
-func PostgresOptRepo(repo string) PostgresOpt {
+func PostgresRepo(repo string) PostgresOpt {
 	return func(f *Postgres) {
 		f.repo = repo
 	}
 }
 
-func PostgresOptVersion(version string) PostgresOpt {
+func PostgresVersion(version string) PostgresOpt {
 	return func(f *Postgres) {
 		f.version = version
 	}
 }
 
 // Tell docker to kill the container after an unreasonable amount of test time to prevent orphans. Defaults to 600 seconds.
-func PostgresOptExpireAfter(expireAfter uint) PostgresOpt {
+func PostgresExpireAfter(expireAfter uint) PostgresOpt {
 	return func(f *Postgres) {
 		f.expireAfter = expireAfter
 	}
 }
 
 // Wait this long for operations to execute. Defaults to 30 seconds.
-func PostgresOptTimeoutAfter(timeoutAfter uint) PostgresOpt {
+func PostgresTimeoutAfter(timeoutAfter uint) PostgresOpt {
 	return func(f *Postgres) {
 		f.timeoutAfter = timeoutAfter
 	}
 }
 
-func PostgresOptSkipTearDown() PostgresOpt {
+func PostgresSkipTearDown() PostgresOpt {
 	return func(f *Postgres) {
 		f.skipTearDown = true
 	}
 }
 
-func PostgresOptMounts(mounts []string) PostgresOpt {
+func PostgresMounts(mounts []string) PostgresOpt {
 	return func(f *Postgres) {
 		f.mounts = mounts
 	}
@@ -242,12 +242,7 @@ func (f *Postgres) CreateDatabase(ctx context.Context, name string) error {
 	if name == "" {
 		return errors.New("must provide a database name")
 	}
-	var exitCode int
-	err := Retry(time.Second*time.Duration(f.timeoutAfter), func() error {
-		var err error
-		exitCode, err = f.Psql(ctx, []string{"createdb", "--template=template0", name}, []string{}, false)
-		return err
-	})
+	exitCode, err := f.Psql(ctx, []string{"createdb", "--template=template0", name}, []string{}, false)
 	f.log.Debug("create database", zap.Int("status", exitCode), zap.String("database", name), zap.String("container", f.GetHostName()))
 	return err
 }
@@ -258,12 +253,7 @@ func (f *Postgres) CopyDatabase(ctx context.Context, source string, target strin
 	if source == "" {
 		source = f.settings.Database
 	}
-	var exitCode int
-	err := Retry(time.Second*time.Duration(f.timeoutAfter), func() error {
-		var err error
-		exitCode, err = f.Psql(ctx, []string{"createdb", fmt.Sprintf("--template=%v", source), target}, []string{}, false)
-		return err
-	})
+	exitCode, err := f.Psql(ctx, []string{"createdb", fmt.Sprintf("--template=%v", source), target}, []string{}, false)
 	f.log.Debug("copy database", zap.Int("status", exitCode), zap.String("source", source), zap.String("target", target), zap.String("container", f.GetHostName()))
 	return err
 }
@@ -287,12 +277,7 @@ func (f *Postgres) DropDatabase(ctx context.Context, name string) error {
 		return err
 	}
 
-	var exitCode int
-	err = Retry(time.Second*time.Duration(f.timeoutAfter), func() error {
-		var err error
-		exitCode, err = f.Psql(ctx, []string{"dropdb", name}, []string{}, false)
-		return err
-	})
+	exitCode, err := f.Psql(ctx, []string{"dropdb", name}, []string{}, false)
 	f.log.Debug("drop database", zap.Int("status", exitCode), zap.String("database", name), zap.String("container", f.GetHostName()))
 	return err
 }
@@ -302,12 +287,7 @@ func (f *Postgres) Dump(ctx context.Context, dir string, filename string) error 
 	if path == "" {
 		return fmt.Errorf("could not resolve path: %v", dir)
 	}
-	var exitCode int
-	err := Retry(time.Second*time.Duration(f.timeoutAfter), func() error {
-		var err error
-		exitCode, err = f.Psql(ctx, []string{"sh", "-c", fmt.Sprintf("pg_dump -Fc -Z0 %v > /tmp/%v", f.settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false)
-		return err
-	})
+	exitCode, err := f.Psql(ctx, []string{"sh", "-c", fmt.Sprintf("pg_dump -Fc -Z0 %v > /tmp/%v", f.settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false)
 	f.log.Debug("dump database", zap.Int("status", exitCode), zap.String("database", f.settings.Database), zap.String("container", f.GetHostName()), zap.String("path", path))
 	return err
 }
@@ -317,12 +297,7 @@ func (f *Postgres) Restore(ctx context.Context, dir string, filename string) err
 	if path == "" {
 		return fmt.Errorf("could not resolve path: %v", dir)
 	}
-	var exitCode int
-	err := Retry(time.Second*time.Duration(f.timeoutAfter), func() error {
-		var err error
-		exitCode, err = f.Psql(ctx, []string{"sh", "-c", fmt.Sprintf("pg_restore --dbname=%v --verbose --single-transaction /tmp/%v", f.settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false)
-		return err
-	})
+	exitCode, err := f.Psql(ctx, []string{"sh", "-c", fmt.Sprintf("pg_restore --dbname=%v --verbose --single-transaction /tmp/%v", f.settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false)
 	f.log.Debug("restore database", zap.Int("status", exitCode), zap.String("database", f.settings.Database), zap.String("container", f.GetHostName()), zap.String("path", path))
 	return err
 }
@@ -335,12 +310,7 @@ func (f *Postgres) LoadSql(ctx context.Context, path string) error {
 			return err
 		}
 		name := filepath.Base(p)
-		var exitCode int
-		err = Retry(time.Second*time.Duration(f.timeoutAfter), func() error {
-			var err error
-			exitCode, err = f.Psql(ctx, []string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false)
-			return err
-		})
+		exitCode, err := f.Psql(ctx, []string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false)
 		f.log.Debug("load sql", zap.Int("status", exitCode), zap.String("database", f.settings.Database), zap.String("container", f.GetHostName()), zap.String("name", name))
 		if err != nil {
 			return fmt.Errorf("failed to run psql (load sql): %w", err)

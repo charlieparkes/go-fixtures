@@ -17,10 +17,10 @@ func TestPostgres(t *testing.T) {
 	defer fixtures.RecoverTearDown(ctx)
 
 	dockerOpts := []DockerOpt{
-		DockerOptNamePrefix("gofixtures"),
+		DockerNamePrefix("gofixtures"),
 	}
 	if networkName := os.Getenv("HOST_NETWORK_NAME"); networkName != "" {
-		dockerOpts = append(dockerOpts, DockerOptNetworkName(networkName))
+		dockerOpts = append(dockerOpts, DockerNetworkName(networkName))
 	}
 	d := NewDocker(dockerOpts...)
 	t.Run("Docker", func(t *testing.T) {

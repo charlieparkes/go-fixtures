@@ -23,19 +23,19 @@ func NewDocker(opts ...DockerOpt) *Docker {
 	return f
 }
 
-func DockerOptName(name string) DockerOpt {
+func DockerName(name string) DockerOpt {
 	return func(f *Docker) {
 		f.name = name
 	}
 }
 
-func DockerOptNamePrefix(namePrefix string) DockerOpt {
+func DockerNamePrefix(namePrefix string) DockerOpt {
 	return func(f *Docker) {
 		f.namePrefix = namePrefix
 	}
 }
 
-func DockerOptNetworkName(networkName string) DockerOpt {
+func DockerNetworkName(networkName string) DockerOpt {
 	return func(f *Docker) {
 		f.networkName = networkName
 	}
