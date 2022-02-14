@@ -10,7 +10,8 @@ test:
 	set -o pipefail; DEBUG=true go test ./... -v || ( \
 		([ ! -z "$$(docker container ls -aq)" ] && docker container stop $$(docker container ls -aq)) && \
 		([ ! -z "$$(docker container ls -aq)" ] && docker container rm $$(docker container ls -aq)) && \
-		docker network prune -f \
+		docker network prune -f && \
+		exit 1 \
 	)
 	@rm -rf testdata/tmp
 
@@ -27,7 +28,8 @@ test-docker:
 		go test ./... -v || ( \
 		([ ! -z "$$(docker container ls -aq)" ] && docker container stop $$(docker container ls -aq)) && \
 		([ ! -z "$$(docker container ls -aq)" ] && docker container rm $$(docker container ls -aq)) && \
-		docker network prune -f \
+		docker network prune -f && \
+		exit 1 \
 	)
 	@rm -rf testdata/tmp
 
@@ -47,6 +49,7 @@ test-docker-network:
 		go test ./... -v || ( \
 		([ ! -z "$$(docker container ls -aq)" ] && docker container stop $$(docker container ls -aq)) && \
 		([ ! -z "$$(docker container ls -aq)" ] && docker container rm $$(docker container ls -aq)) && \
-		docker network prune -f \
+		docker network prune -f && \
+		exit 1 \
 	)
 	@rm -rf testdata/tmp
