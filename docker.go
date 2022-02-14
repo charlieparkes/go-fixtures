@@ -188,17 +188,15 @@ func GetContainerTcpPort(resource *dockertest.Resource, network *dockertest.Netw
 }
 
 func UseBridgeNetwork(network *dockertest.Network) bool {
-	if IsRunningInContainer() {
-		// Check if there is a connected container that matches the hostname, which means the host
-		// container is connected to the network
-		hostname, err := os.Hostname()
-		if err != nil {
-			panic(fmt.Errorf("error retrieving hostname: %w", err))
-		}
-		for _, v := range network.Network.Containers {
-			if v.Name == hostname {
-				return true
-			}
+	// Check if there is a connected container that matches the hostname, which means the host
+	// container is connected to the network
+	hostname, err := os.Hostname()
+	if err != nil {
+		panic(fmt.Errorf("error retrieving hostname: %w", err))
+	}
+	for _, v := range network.Network.Containers {
+		if v.Name == hostname {
+			return true
 		}
 	}
 	return false
