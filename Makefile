@@ -1,18 +1,18 @@
 -include $(shell [ -e .build-harness ] || curl -sSL -o .build-harness "https://git.io/fjZtV"; echo .build-harness)
 
-.PHONY: clean
-clean:
-	go clean -testcache ./...
-
-.PHONY: test
-test:
-	@mkdir -p testdata/tmp
-	set -o pipefail; DEBUG=true go test ./... -v || ( \
+.PHONY: recover
+recover:
+	@set -o pipefail; ( \
 		([ ! -z "$$(docker container ls -aq)" ] && docker container stop $$(docker container ls -aq)) && \
 		([ ! -z "$$(docker container ls -aq)" ] && docker container rm $$(docker container ls -aq)) && \
 		docker network prune -f && \
 		exit 1 \
 	)
+
+.PHONY: test
+test:
+	@mkdir -p testdata/tmp
+	set -o pipefail; DEBUG=true go test ./... -v || $(MAKE) recover
 	@rm -rf testdata/tmp
 
 .PHONY: test-docker
@@ -25,12 +25,7 @@ test-docker:
 		--workdir $$PWD \
 		-e DEBUG=true \
 		golang:1.17 \
-		go test ./... -v || ( \
-		([ ! -z "$$(docker container ls -aq)" ] && docker container stop $$(docker container ls -aq)) && \
-		([ ! -z "$$(docker container ls -aq)" ] && docker container rm $$(docker container ls -aq)) && \
-		docker network prune -f && \
-		exit 1 \
-	)
+		go test ./... -v || $(MAKE) recover
 	@rm -rf testdata/tmp
 
 .PHONY: test-docker-network
@@ -46,10 +41,5 @@ test-docker-network:
 		-e DEBUG=true \
 		-e HOST_NETWORK_NAME=bridge-fixtures \
 		golang:1.17 \
-		go test ./... -v || ( \
-		([ ! -z "$$(docker container ls -aq)" ] && docker container stop $$(docker container ls -aq)) && \
-		([ ! -z "$$(docker container ls -aq)" ] && docker container rm $$(docker container ls -aq)) && \
-		docker network prune -f && \
-		exit 1 \
-	)
+		go test ./... -v || $(MAKE) recover 
 	@rm -rf testdata/tmp

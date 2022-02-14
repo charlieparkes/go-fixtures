@@ -237,7 +237,7 @@ func (f *Postgres) CreateDatabase(ctx context.Context, name string) error {
 	return err
 }
 
-// CopyDatabase creates a copy of an existing postgres database using createdb --template
+// CopyDatabase creates a copy of an existing postgres database using `createdb --template={source} {target}`
 // ex.
 //		name := namesgenerator.GetRandomName(0)
 //		f.CopyDatabase(ctx, "my_db", name)
