@@ -33,6 +33,11 @@ func TestPostgres(t *testing.T) {
 		require.NoError(t, fixtures.Add(ctx, p1))
 	})
 
+	t.Run("Ping", func(t *testing.T) {
+		require.NoError(t, p1.Ping(ctx))
+		require.NoError(t, p1.PingPsql(ctx))
+	})
+
 	t.Run("TableExists_False", func(t *testing.T) {
 		exists, err := p1.TableExists(ctx, "", "public", "address")
 		assert.NoError(t, err)
@@ -43,11 +48,13 @@ func TestPostgres(t *testing.T) {
 		require.NoError(t, p1.LoadSqlPattern(ctx, "./testdata/migrations/*.sql"))
 
 		db, err := p1.GetConnection(ctx, "")
-		assert.NoError(t, err)
+		require.NoError(t, err)
+		if err == nil {
+			_ = db.Close(ctx)
+		}
 		tables, err := p1.GetTables(ctx, "")
 		require.NoError(t, err)
 		assert.Len(t, tables, 2)
-		_ = db.Close(ctx)
 	})
 
 	t.Run("TableExists_True", func(t *testing.T) {
@@ -69,8 +76,10 @@ func TestPostgres(t *testing.T) {
 		name := namesgenerator.GetRandomName(0)
 		require.NoError(t, p1.CreateDatabase(ctx, name))
 		db, err := p1.GetConnection(ctx, name)
-		assert.NoError(t, err)
-		_ = db.Close(ctx)
+		require.NoError(t, err)
+		if err == nil {
+			_ = db.Close(ctx)
+		}
 	})
 
 	databaseName := namesgenerator.GetRandomName(0)
@@ -78,8 +87,10 @@ func TestPostgres(t *testing.T) {
 		require.NoError(t, p1.CopyDatabase(ctx, "", databaseName))
 
 		db, err := p1.GetConnection(ctx, databaseName)
-		assert.NoError(t, err)
-		assert.NoError(t, db.Close(ctx))
+		require.NoError(t, err)
+		if err == nil {
+			_ = db.Close(ctx)
+		}
 
 		tables, err := p1.GetTables(ctx, databaseName)
 		require.NoError(t, err)
@@ -102,8 +113,10 @@ func TestPostgres(t *testing.T) {
 		assert.NoError(t, p2.Restore(ctx, "testdata/tmp", "test.pgdump"))
 
 		db, err := p2.GetConnection(ctx, "")
-		assert.NoError(t, err)
-		assert.NoError(t, db.Close(ctx))
+		require.NoError(t, err)
+		if err == nil {
+			_ = db.Close(ctx)
+		}
 
 		tables, err := p2.GetTables(ctx, "")
 		require.NoError(t, err)

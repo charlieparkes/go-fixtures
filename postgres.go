@@ -203,6 +203,7 @@ func (f *Postgres) Psql(ctx context.Context, cmd []string, mounts []string, quie
 		},
 		Cmd: cmd,
 	}
+	// f.log.Debug("psql setup", zap.Any("environment", opts.Env))
 	resource, err := f.docker.GetPool().RunWithOptions(&opts)
 	if err != nil {
 		return 0, err
@@ -223,6 +224,20 @@ func (f *Postgres) Psql(ctx context.Context, cmd []string, mounts []string, quie
 	return exitCode, nil
 }
 
+func (f *Postgres) PingPsql(ctx context.Context) error {
+	_, err := f.Psql(ctx, []string{"psql", "-c", ";"}, []string{}, false)
+	return err
+}
+
+func (f *Postgres) Ping(ctx context.Context) error {
+	db, err := f.GetConnection(ctx, "")
+	if err != nil {
+		return err
+	}
+	defer db.Close(ctx)
+	return db.Ping(ctx)
+}
+
 func (f *Postgres) CreateDatabase(ctx context.Context, name string) error {
 	if name == "" {
 		return errors.New("must provide a database name")
@@ -238,10 +253,7 @@ func (f *Postgres) CreateDatabase(ctx context.Context, name string) error {
 }
 
 // CopyDatabase creates a copy of an existing postgres database using `createdb --template={source} {target}`
-// ex.
-//		name := namesgenerator.GetRandomName(0)
-//		f.CopyDatabase(ctx, "my_db", name)
-// 		f.GetConnection(ctx, name)
+// source will default to the primary database
 func (f *Postgres) CopyDatabase(ctx context.Context, source string, target string) error {
 	if source == "" {
 		source = f.settings.Database
@@ -419,6 +431,7 @@ func (f *Postgres) TableExists(ctx context.Context, database, schema, table stri
 	if err != nil {
 		return false, err
 	}
+	defer db.Close(ctx)
 	query := "SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname = $1 AND tablename = $2"
 	count := 0
 	if err := db.QueryRow(ctx, query, schema, table).Scan(&count); err != nil {
@@ -432,6 +445,7 @@ func (f *Postgres) GetTableColumns(ctx context.Context, database, schema, table 
 	if err != nil {
 		return nil, err
 	}
+	defer db.Close(ctx)
 	var columnNames pgtype.TextArray
 	query := fmt.Sprintf("SELECT array_agg(column_name::text) FROM information_schema.columns WHERE table_schema = '%v' AND table_name = '%v'", schema, table)
 	if err := db.QueryRow(ctx,
@@ -451,6 +465,7 @@ func (f *Postgres) GetTables(ctx context.Context, database string) ([]string, er
 	if err != nil {
 		return nil, err
 	}
+	defer db.Close(ctx)
 	tables := []string{}
 	rows, err := db.Query(ctx, "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'information_schema' AND schemaname != 'pg_catalog'")
 	if err != nil {
