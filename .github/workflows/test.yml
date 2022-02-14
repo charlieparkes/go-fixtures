@@ -31,7 +31,7 @@ jobs:
     - name: Vet
       run: go vet ./...
     - name: pull images
-      run: docker pull postgres:13-alpine
+      run: docker pull postgres:13-alpine && docker pull golang:1.17 && docker pull crccheck/hello-world:latest
     - name: Test
       run: make test
     - name: Test (Under Docker)

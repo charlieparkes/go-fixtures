@@ -11,17 +11,17 @@ import (
 
 func TestDocker(t *testing.T) {
 	ctx := context.Background()
-	f := Docker{}
+	f := NewDocker()
 	assert.NoError(t, f.SetUp(ctx))
 	defer f.TearDown(ctx)
 
 	name := GenerateString()
-	resource, err := f.Pool.RunWithOptions(&dockertest.RunOptions{Name: name, Repository: "crccheck/hello-world", Tag: "latest", Env: nil})
+	resource, err := f.GetPool().RunWithOptions(&dockertest.RunOptions{Name: name, Repository: "crccheck/hello-world", Tag: "latest", Env: nil})
 	assert.NoError(t, err)
 
-	assert.Equal(t, "", GetHostIP(resource, f.Network))
+	assert.Equal(t, "", GetHostIP(resource, f.GetNetwork()))
 	assert.Equal(t, name, GetHostName(resource))
 
 	assert.Equal(t, fmt.Sprintf("/%v", name), resource.Container.Name)
-	assert.NoError(t, f.Pool.Purge(resource))
+	assert.NoError(t, f.GetPool().Purge(resource))
 }

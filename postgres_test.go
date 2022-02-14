@@ -2,80 +2,132 @@ package fixtures
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"testing"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPostgres(t *testing.T) {
 	ctx := context.Background()
-	timer := newTimer()
 	fixtures := Fixtures{}
-	defer fixtures.TearDown(ctx)
+	defer fixtures.RecoverTearDown(ctx)
 
-	d := &Docker{NamePrefix: "gofixtures"}
-	fixtures.AddByName(ctx, "docker", d)
-	timer.PrintSplit("Docker")
-
-	p1 := &PostgresWithSchema{
-		Docker:   d,
-		PathGlob: "./testdata/migrations/*.sql",
+	dockerOpts := []DockerOpt{
+		DockerNamePrefix("gofixtures"),
 	}
-	fixtures.AddByName(ctx, "postgres_with_schema", p1)
-	timer.PrintSplit("PostgresWithSchema")
-
-	db, err := p1.GetConnection(ctx)
-	assert.NoError(t, err)
-
-	assert.Len(t, getTables(t, ctx, db), 2) // migrations define two tables
-	assert.NoError(t, db.Close(ctx))
-	timer.PrintSplit("Migrations check")
-
-	p1.Postgres.DumpDatabase(ctx, "testdata/tmp", "test.pgdump")
-	timer.PrintSplit("Postgres.DumpDatabase")
-
-	c := &PostgresDatabaseCopy{
-		Postgres:     p1.Postgres,
-		SkipTearDown: true,
+	if networkName := os.Getenv("HOST_NETWORK_NAME"); networkName != "" {
+		dockerOpts = append(dockerOpts, DockerNetworkName(networkName))
 	}
-	fixtures.AddByName(ctx, "db_copy", c)
-	timer.PrintSplit("PostgresDatabaseCopy")
+	d := NewDocker(dockerOpts...)
+	t.Run("Docker", func(t *testing.T) {
+		require.NoError(t, fixtures.AddByName(ctx, "docker", d))
+	})
 
-	db, err = c.GetConnection(ctx)
-	assert.NoError(t, err)
+	var p1 *Postgres
+	t.Run("Postgres", func(t *testing.T) {
+		p1 = NewPostgres(d)
+		require.NoError(t, fixtures.Add(ctx, p1))
+	})
 
-	assert.Len(t, getTables(t, ctx, db), 2)
-	timer.PrintSplit("Migrations check")
+	t.Run("Ping", func(t *testing.T) {
+		require.NoError(t, p1.Ping(ctx))
+		require.NoError(t, p1.PingPsql(ctx))
+	})
 
-	p2 := &Postgres{
-		Docker: d,
-	}
-	fixtures.AddByName(ctx, "postgres", p2)
-	timer.PrintSplit("Postgres")
+	t.Run("TableExists_False", func(t *testing.T) {
+		exists, err := p1.TableExists(ctx, "", "public", "address")
+		assert.NoError(t, err)
+		assert.False(t, exists)
+	})
 
-	err = p2.RestoreDatabase(ctx, "testdata/tmp", "test.pgdump")
-	assert.NoError(t, err)
-	timer.PrintSplit("Postgres.RestoreDatabase")
+	t.Run("LoadSqlPattern", func(t *testing.T) {
+		require.NoError(t, p1.LoadSqlPattern(ctx, "./testdata/migrations/*.sql"))
 
-	db, err = p2.GetConnection(ctx, "")
-	assert.NoError(t, err)
-
-	assert.Len(t, getTables(t, ctx, db), 2)
-	assert.NoError(t, db.Close(ctx))
-	timer.PrintSplit("Migrations check")
-}
-
-func getTables(t *testing.T, ctx context.Context, db *pgx.Conn) []string {
-	tables := []string{}
-	rows, err := db.Query(ctx, "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'information_schema' AND schemaname != 'pg_catalog'")
-	require.NoError(t, err)
-	for rows.Next() {
-		var table string
-		err := rows.Scan(&table)
+		db, err := p1.GetConnection(ctx, "")
 		require.NoError(t, err)
-		tables = append(tables, table)
-	}
-	return tables
+		if err == nil {
+			_ = db.Close(ctx)
+		}
+		tables, err := p1.GetTables(ctx, "")
+		require.NoError(t, err)
+		assert.Len(t, tables, 2)
+	})
+
+	t.Run("TableExists_True", func(t *testing.T) {
+		exists, err := p1.TableExists(ctx, "", "public", "address")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+		if !exists {
+			tables, err := p1.GetTables(ctx, "")
+			require.NoError(t, err)
+			fmt.Println(tables)
+		}
+	})
+
+	t.Run("Dump", func(t *testing.T) {
+		require.NoError(t, p1.Dump(ctx, "testdata/tmp", "test.pgdump"))
+	})
+
+	t.Run("CreateDatabase", func(t *testing.T) {
+		name := namesgenerator.GetRandomName(0)
+		require.NoError(t, p1.CreateDatabase(ctx, name))
+		db, err := p1.GetConnection(ctx, name)
+		require.NoError(t, err)
+		if err == nil {
+			_ = db.Close(ctx)
+		}
+	})
+
+	databaseName := namesgenerator.GetRandomName(0)
+	t.Run("CopyDatabase", func(t *testing.T) {
+		require.NoError(t, p1.CopyDatabase(ctx, "", databaseName))
+
+		db, err := p1.GetConnection(ctx, databaseName)
+		require.NoError(t, err)
+		if err == nil {
+			_ = db.Close(ctx)
+		}
+
+		tables, err := p1.GetTables(ctx, databaseName)
+		require.NoError(t, err)
+		assert.Len(t, tables, 2)
+
+		// Original.
+		exists, err := p1.TableExists(ctx, "", "public", "address")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+		// New copy.
+		exists, err = p1.TableExists(ctx, databaseName, "public", "address")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+	})
+
+	t.Run("Restore", func(t *testing.T) {
+		p2 := NewPostgres(d)
+		require.NoError(t, fixtures.Add(ctx, p2))
+
+		assert.NoError(t, p2.Restore(ctx, "testdata/tmp", "test.pgdump"))
+
+		db, err := p2.GetConnection(ctx, "")
+		require.NoError(t, err)
+		if err == nil {
+			_ = db.Close(ctx)
+		}
+
+		tables, err := p2.GetTables(ctx, "")
+		require.NoError(t, err)
+		assert.Len(t, tables, 2)
+
+		exists, err := p2.TableExists(ctx, "", "public", "address")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+	})
+
+	t.Run("Teardown", func(t *testing.T) {
+		require.NoError(t, fixtures.TearDown(ctx))
+	})
 }

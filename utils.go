@@ -49,17 +49,3 @@ func Retry(d time.Duration, op func() error) error {
 	bo.MaxElapsedTime = time.Duration(d)
 	return backoff.Retry(op, bo)
 }
-
-func debugPrintf(format string, a ...interface{}) (int, error) {
-	if getEnv().Debug {
-		return fmt.Printf(format, a...)
-	}
-	return 0, nil
-}
-
-func debugPrintln(i ...interface{}) (int, error) {
-	if getEnv().Debug {
-		return fmt.Println(i...)
-	}
-	return 0, nil
-}
