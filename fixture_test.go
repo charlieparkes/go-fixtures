@@ -29,7 +29,7 @@ func TestGetType(t *testing.T) {
 
 func TestFixtures(t *testing.T) {
 	ctx := context.Background()
-	fixtures := Fixtures{}
+	fixtures := NewFixtures()
 	df := DummyFixture{}
 	df2 := DummyFixture{}
 

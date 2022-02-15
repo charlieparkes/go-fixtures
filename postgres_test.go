@@ -13,7 +13,7 @@ import (
 
 func TestPostgres(t *testing.T) {
 	ctx := context.Background()
-	fixtures := Fixtures{}
+	fixtures := NewFixtures()
 	defer fixtures.RecoverTearDown(ctx)
 
 	dockerOpts := []DockerOpt{
