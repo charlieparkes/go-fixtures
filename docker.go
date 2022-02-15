@@ -41,8 +41,15 @@ func DockerNetworkName(networkName string) DockerOpt {
 	}
 }
 
+func DockerLogger(logger *zap.Logger) DockerOpt {
+	return func(f *Docker) {
+		f.log = logger
+	}
+}
+
 type Docker struct {
 	BaseFixture
+	log            *zap.Logger
 	name           string
 	namePrefix     string
 	networkName    string
@@ -73,6 +80,9 @@ func (f *Docker) GetNetwork() *dockertest.Network {
 
 func (f *Docker) SetUp(ctx context.Context) error {
 	var err error
+	if f.log == nil {
+		f.log = logger()
+	}
 	if f.namePrefix == "" {
 		if f.name != "" {
 			f.namePrefix = f.name

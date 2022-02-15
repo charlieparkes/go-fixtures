@@ -11,6 +11,25 @@ import (
 
 var wg sync.WaitGroup
 
+type FixturesOpt func(*Fixtures)
+
+func NewFixtures(opts ...FixturesOpt) *Fixtures {
+	f := &Fixtures{}
+	for _, opt := range opts {
+		opt(f)
+	}
+	if f.log == nil {
+		f.log = logger()
+	}
+	return f
+}
+
+func FixturesLogger(logger *zap.Logger) FixturesOpt {
+	return func(f *Fixtures) {
+		f.log = logger
+	}
+}
+
 type Fixtures struct {
 	log   *zap.Logger
 	store map[string]Fixture
@@ -27,7 +46,6 @@ func (f *Fixtures) Add(ctx context.Context, fixtures ...Fixture) error {
 }
 
 func (f *Fixtures) AddByName(ctx context.Context, name string, fixture Fixture) error {
-	f.log = logger()
 	if f.store == nil {
 		f.order = []string{}
 		f.store = map[string]Fixture{}
@@ -59,7 +77,6 @@ func (f *Fixtures) SetUp(ctx context.Context) error {
 }
 
 func (f *Fixtures) TearDown(ctx context.Context) error {
-	defer f.log.Sync()
 	fixtureNames := []string{}
 	for _, name := range f.order {
 		fixtureNames = append([]string{name}, fixtureNames...)

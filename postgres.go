@@ -80,6 +80,12 @@ func PostgresMounts(mounts []string) PostgresOpt {
 	}
 }
 
+func PostgresLogger(logger *zap.Logger) PostgresOpt {
+	return func(f *Postgres) {
+		f.log = logger
+	}
+}
+
 type Postgres struct {
 	BaseFixture
 	log          *zap.Logger
@@ -99,7 +105,9 @@ func (f *Postgres) GetSettings() *ConnectionSettings {
 }
 
 func (f *Postgres) SetUp(ctx context.Context) error {
-	f.log = logger()
+	if f.log == nil {
+		f.log = logger()
+	}
 	if f.repo == "" {
 		f.repo = DEFAULT_POSTGRES_REPO
 	}
@@ -161,7 +169,6 @@ func (f *Postgres) SetUp(ctx context.Context) error {
 }
 
 func (f *Postgres) TearDown(ctx context.Context) error {
-	defer f.log.Sync()
 	if f.skipTearDown {
 		return nil
 	}
