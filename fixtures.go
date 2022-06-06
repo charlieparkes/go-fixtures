@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/docker/docker/pkg/namesgenerator"
 	"go.uber.org/zap"
 )
 
@@ -38,7 +39,7 @@ type Fixtures struct {
 
 func (f *Fixtures) Add(ctx context.Context, fixtures ...Fixture) error {
 	for _, fix := range fixtures {
-		if err := f.AddByName(ctx, GenerateString(), fix); err != nil {
+		if err := f.AddByName(ctx, namesgenerator.GetRandomName(0), fix); err != nil {
 			return err
 		}
 	}
@@ -108,4 +109,24 @@ func (f *Fixtures) RecoverTearDown(ctx context.Context) func() {
 			panic(r)
 		}
 	}
+}
+
+// Docker() returns the first Docker fixture. If none exists, panic.
+func (f *Fixtures) Docker() *Docker {
+	for _, x := range f.store {
+		if val, ok := x.(*Docker); ok {
+			return val
+		}
+	}
+	panic("no docker fixture found")
+}
+
+// Postgres() returns the first Postgres fixture. If none exists, panic.
+func (f *Fixtures) Postgres() *Postgres {
+	for _, x := range f.store {
+		if val, ok := x.(*Postgres); ok {
+			return val
+		}
+	}
+	panic("no postgres fixture found")
 }
