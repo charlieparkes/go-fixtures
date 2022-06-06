@@ -24,13 +24,17 @@ func TestPostgres(t *testing.T) {
 	}
 	d := NewDocker(dockerOpts...)
 	t.Run("Docker", func(t *testing.T) {
-		require.NoError(t, fixtures.AddByName(ctx, "docker", d))
+		require.NoError(t, fixtures.Add(ctx, d))
 	})
 
 	var p1 *Postgres
-	t.Run("Postgres", func(t *testing.T) {
+	t.Run("Create", func(t *testing.T) {
 		p1 = NewPostgres(d)
 		require.NoError(t, fixtures.Add(ctx, p1))
+	})
+
+	t.Run("Get", func(t *testing.T) {
+		require.NotNil(t, fixtures.Postgres())
 	})
 
 	t.Run("Ping", func(t *testing.T) {
@@ -47,10 +51,10 @@ func TestPostgres(t *testing.T) {
 	t.Run("LoadSqlPattern", func(t *testing.T) {
 		require.NoError(t, p1.LoadSqlPattern(ctx, "./testdata/migrations/*.sql"))
 
-		db, err := p1.GetConnection(ctx, "")
+		db, err := p1.Connect(ctx)
 		require.NoError(t, err)
 		if err == nil {
-			_ = db.Close(ctx)
+			db.Close()
 		}
 		tables, err := p1.GetTables(ctx, "")
 		require.NoError(t, err)
@@ -68,6 +72,10 @@ func TestPostgres(t *testing.T) {
 		}
 	})
 
+	t.Run("ValidateModel", func(t *testing.T) {
+		require.NoError(t, p1.ValidateModels(ctx, "", &Person{}))
+	})
+
 	t.Run("Dump", func(t *testing.T) {
 		require.NoError(t, p1.Dump(ctx, "testdata/tmp", "test.pgdump"))
 	})
@@ -75,21 +83,21 @@ func TestPostgres(t *testing.T) {
 	t.Run("CreateDatabase", func(t *testing.T) {
 		name := namesgenerator.GetRandomName(0)
 		require.NoError(t, p1.CreateDatabase(ctx, name))
-		db, err := p1.GetConnection(ctx, name)
+		db, err := p1.Connect(ctx, PostgresConnDatabase(name))
 		require.NoError(t, err)
 		if err == nil {
-			_ = db.Close(ctx)
+			db.Close()
 		}
 	})
 
-	databaseName := namesgenerator.GetRandomName(0)
 	t.Run("CopyDatabase", func(t *testing.T) {
+		databaseName := namesgenerator.GetRandomName(0)
 		require.NoError(t, p1.CopyDatabase(ctx, "", databaseName))
 
-		db, err := p1.GetConnection(ctx, databaseName)
+		db, err := p1.Connect(ctx, PostgresConnDatabase(databaseName))
 		require.NoError(t, err)
 		if err == nil {
-			_ = db.Close(ctx)
+			db.Close()
 		}
 
 		tables, err := p1.GetTables(ctx, databaseName)
@@ -106,16 +114,37 @@ func TestPostgres(t *testing.T) {
 		assert.True(t, exists)
 	})
 
+	t.Run("ConnectCopyDatabase", func(t *testing.T) {
+		db, err := p1.Connect(ctx, PostgresConnCreateCopy())
+		require.NoError(t, err)
+		if err == nil {
+			db.Close()
+		}
+
+		tables, err := p1.GetTables(ctx, db.Config().ConnConfig.Database)
+		require.NoError(t, err)
+		assert.Len(t, tables, 2)
+
+		// Original.
+		exists, err := p1.TableExists(ctx, "", "public", "address")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+		// New copy.
+		exists, err = p1.TableExists(ctx, db.Config().ConnConfig.Database, "public", "address")
+		assert.NoError(t, err)
+		assert.True(t, exists)
+	})
+
 	t.Run("Restore", func(t *testing.T) {
 		p2 := NewPostgres(d)
 		require.NoError(t, fixtures.Add(ctx, p2))
 
 		assert.NoError(t, p2.Restore(ctx, "testdata/tmp", "test.pgdump"))
 
-		db, err := p2.GetConnection(ctx, "")
+		db, err := p2.Connect(ctx)
 		require.NoError(t, err)
 		if err == nil {
-			_ = db.Close(ctx)
+			db.Close()
 		}
 
 		tables, err := p2.GetTables(ctx, "")
@@ -130,4 +159,12 @@ func TestPostgres(t *testing.T) {
 	t.Run("Teardown", func(t *testing.T) {
 		require.NoError(t, fixtures.TearDown(ctx))
 	})
+}
+
+type Person struct {
+	Id        int64
+	FirstName string
+	LastName  string
+	AddressId int64
+	FooBar    bool `db:"-"`
 }

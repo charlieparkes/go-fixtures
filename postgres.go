@@ -9,14 +9,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charlieparkes/go-structs"
+	"github.com/docker/docker/pkg/namesgenerator"
+	"github.com/iancoleman/strcase"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/ory/dockertest/v3"
 	"go.uber.org/zap"
 )
 
-const DEFAULT_POSTGRES_REPO = "postgres"
-const DEFAULT_POSTGRES_VERSION = "13-alpine"
+const (
+	DEFAULT_POSTGRES_REPO    = "postgres"
+	DEFAULT_POSTGRES_VERSION = "13-alpine"
+)
 
 type PostgresOpt func(*Postgres)
 
@@ -160,7 +166,7 @@ func (f *Postgres) SetUp(ctx context.Context) error {
 	f.resource.Expire(f.expireAfter)
 
 	if f.timeoutAfter == 0 {
-		f.timeoutAfter = 15
+		f.timeoutAfter = 30
 	}
 	if err := f.WaitForReady(ctx, time.Second*time.Duration(f.timeoutAfter)); err != nil {
 		return err
@@ -177,12 +183,88 @@ func (f *Postgres) TearDown(ctx context.Context) error {
 	return nil
 }
 
+func (f *Postgres) GetConnConfig() (*pgxpool.Config, error) {
+	return pgxpool.ParseConfig(f.settings.String())
+}
+
+// Deprecated: use Connect(ctx, PostgresConnDatabase("database_name"))
 func (f *Postgres) GetConnection(ctx context.Context, database string) (*pgx.Conn, error) {
 	settings := f.settings.Copy()
 	if database != "" {
 		settings.Database = database
 	}
 	return settings.Connect(ctx)
+}
+
+type PostgresConnConfig struct {
+	poolConfig *pgxpool.Config
+	role       string
+	database   string
+	createCopy bool
+}
+
+type PostgresConnOpt func(*PostgresConnConfig)
+
+func PostgresConnRole(role string) PostgresConnOpt {
+	return func(f *PostgresConnConfig) {
+		f.role = role
+	}
+}
+
+func PostgresConnDatabase(database string) PostgresConnOpt {
+	return func(f *PostgresConnConfig) {
+		if database != "" {
+			f.database = database
+		}
+	}
+}
+
+func PostgresConnCreateCopy() PostgresConnOpt {
+	return func(f *PostgresConnConfig) {
+		f.createCopy = true
+	}
+}
+
+func (f *Postgres) Connect(ctx context.Context, opts ...PostgresConnOpt) (*pgxpool.Pool, error) {
+	poolConfig, err := f.GetConnConfig()
+	if err != nil {
+		return nil, err
+	}
+	cfg := &PostgresConnConfig{
+		poolConfig: poolConfig,
+	}
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	if cfg.database != "" {
+		cfg.poolConfig.ConnConfig.Database = cfg.database
+	}
+	if cfg.createCopy {
+		copiedDatabaseName := namesgenerator.GetRandomName(0)
+		if err := f.CopyDatabase(ctx, cfg.database, copiedDatabaseName); err != nil {
+			return nil, err
+		}
+		cfg.poolConfig.ConnConfig.Database = copiedDatabaseName
+	}
+	pool, err := pgxpool.ConnectConfig(ctx, cfg.poolConfig)
+	if err != nil {
+		return nil, err
+	}
+	if cfg.role != "" {
+		_, err := pool.Exec(ctx, "set role "+cfg.role)
+		if err != nil {
+			return nil, fmt.Errorf("failed to assume role '%v': %w", cfg.role, err)
+		}
+	}
+	return pool, nil
+}
+
+func (f *Postgres) MustConnect(ctx context.Context, opts ...PostgresConnOpt) *pgxpool.Pool {
+	pool, err := f.Connect(ctx, opts...)
+	if err != nil {
+		panic(err)
+	}
+	return pool
 }
 
 func (f *Postgres) GetHostName() string {
@@ -237,11 +319,11 @@ func (f *Postgres) PingPsql(ctx context.Context) error {
 }
 
 func (f *Postgres) Ping(ctx context.Context) error {
-	db, err := f.GetConnection(ctx, "")
+	db, err := f.Connect(ctx)
 	if err != nil {
 		return err
 	}
-	defer db.Close(ctx)
+	defer db.Close()
 	return db.Ping(ctx)
 }
 
@@ -266,11 +348,11 @@ func (f *Postgres) CopyDatabase(ctx context.Context, source string, target strin
 }
 
 func (f *Postgres) DropDatabase(ctx context.Context, name string) error {
-	db, err := f.GetConnection(ctx, name)
+	db, err := f.Connect(ctx, PostgresConnDatabase(name))
 	if err != nil {
 		return err
 	}
-	defer db.Close(ctx)
+	defer db.Close()
 
 	// Revoke future connections.
 	_, err = db.Exec(ctx, fmt.Sprintf("REVOKE CONNECT ON DATABASE %v FROM public", name))
@@ -404,11 +486,11 @@ func (f *Postgres) WaitForReady(ctx context.Context, d time.Duration) error {
 }
 
 func (f *Postgres) TableExists(ctx context.Context, database, schema, table string) (bool, error) {
-	db, err := f.GetConnection(ctx, database)
+	db, err := f.Connect(ctx, PostgresConnDatabase(database))
 	if err != nil {
 		return false, err
 	}
-	defer db.Close(ctx)
+	defer db.Close()
 	query := "SELECT count(*) FROM pg_catalog.pg_tables WHERE schemaname = $1 AND tablename = $2"
 	count := 0
 	if err := db.QueryRow(ctx, query, schema, table).Scan(&count); err != nil {
@@ -418,11 +500,11 @@ func (f *Postgres) TableExists(ctx context.Context, database, schema, table stri
 }
 
 func (f *Postgres) GetTableColumns(ctx context.Context, database, schema, table string) ([]string, error) {
-	db, err := f.GetConnection(ctx, database)
+	db, err := f.Connect(ctx, PostgresConnDatabase(database))
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close(ctx)
+	defer db.Close()
 	var columnNames pgtype.TextArray
 	query := fmt.Sprintf("SELECT array_agg(column_name::text) FROM information_schema.columns WHERE table_schema = '%v' AND table_name = '%v'", schema, table)
 	if err := db.QueryRow(ctx,
@@ -438,11 +520,11 @@ func (f *Postgres) GetTableColumns(ctx context.Context, database, schema, table 
 }
 
 func (f *Postgres) GetTables(ctx context.Context, database string) ([]string, error) {
-	db, err := f.GetConnection(ctx, database)
+	db, err := f.Connect(ctx, PostgresConnDatabase(database))
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close(ctx)
+	defer db.Close()
 	tables := []string{}
 	rows, err := db.Query(ctx, "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'information_schema' AND schemaname != 'pg_catalog'")
 	if err != nil {
@@ -457,4 +539,77 @@ func (f *Postgres) GetTables(ctx context.Context, database string) ([]string, er
 		tables = append(tables, table)
 	}
 	return tables, nil
+}
+
+type model interface {
+	TableName() string
+}
+
+func (f *Postgres) ValidateModels(ctx context.Context, databaseName string, i ...interface{}) error {
+	for _, iface := range i {
+		if err := f.ValidateModel(ctx, databaseName, iface); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f *Postgres) ValidateModel(ctx context.Context, databaseName string, i interface{}) error {
+	var tableName string
+	switch v := i.(type) {
+	case model:
+		tableName = strings.Trim(v.TableName(), "\"")
+	default:
+		tableName = strcase.ToSnake(structs.Name(v))
+	}
+
+	var schemaName string = "public"
+	if s, t, found := strings.Cut(tableName, "."); found {
+		schemaName = strings.Trim(s, "\"")
+		tableName = strings.Trim(t, "\"")
+	}
+
+	exists, err := f.TableExists(ctx, databaseName, schemaName, tableName)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("table %v.%v does not exist", schemaName, tableName)
+	}
+
+	fieldNames := columns(i)
+	columnNames, err := f.GetTableColumns(ctx, databaseName, schemaName, tableName)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range fieldNames {
+		found := false
+		for _, c := range columnNames {
+			if f == c {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("struct %v contains field %v which does not exist in table: %v.%v{%v}", structs.Name(i), f, schemaName, tableName, columnNames)
+		}
+	}
+	return nil
+}
+
+// Given a struct, return the expected column names.
+func columns(i interface{}) []string {
+	sf := structs.Fields(i)
+	fields := []string{}
+	for _, f := range sf {
+		if tag := f.Tag.Get("db"); tag == "-" {
+			continue
+		} else if tag == "" {
+			fields = append(fields, strcase.ToSnake(f.Name))
+		} else {
+			fields = append(fields, tag)
+		}
+	}
+	return fields
 }
