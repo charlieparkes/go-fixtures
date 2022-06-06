@@ -24,7 +24,7 @@ test-docker:
 		-v $$PWD:$$PWD \
 		--workdir $$PWD \
 		-e DEBUG=true \
-		golang:1.17 \
+		golang:1.18 \
 		go test ./... -v || $(MAKE) recover
 	@rm -rf testdata/tmp
 
@@ -40,6 +40,6 @@ test-docker-network:
 		--workdir $$PWD \
 		-e DEBUG=true \
 		-e HOST_NETWORK_NAME=bridge-fixtures \
-		golang:1.17 \
+		golang:1.18 \
 		go test ./... -v || $(MAKE) recover 
 	@rm -rf testdata/tmp
