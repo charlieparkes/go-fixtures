@@ -106,8 +106,12 @@ type Postgres struct {
 	mounts       []string
 }
 
-func (f *Postgres) GetSettings() *ConnectionSettings {
+func (f *Postgres) Settings() *ConnectionSettings {
 	return f.settings
+}
+
+func (f *Postgres) ConnConfig() (*pgxpool.Config, error) {
+	return pgxpool.ParseConfig(f.settings.String())
 }
 
 func (f *Postgres) SetUp(ctx context.Context) error {
@@ -124,13 +128,13 @@ func (f *Postgres) SetUp(ctx context.Context) error {
 		f.settings = &ConnectionSettings{
 			User:       "postgres",
 			Password:   GenerateString(),
-			Database:   f.docker.GetNamePrefix(),
+			Database:   f.docker.NamePrefix(),
 			DisableSSL: true,
 		}
 	}
 	networks := make([]*dockertest.Network, 0)
-	if f.docker.GetNetwork() != nil {
-		networks = append(networks, f.docker.GetNetwork())
+	if f.docker.Network() != nil {
+		networks = append(networks, f.docker.Network())
 	}
 	opts := dockertest.RunOptions{
 		Repository: f.repo,
@@ -153,12 +157,12 @@ func (f *Postgres) SetUp(ctx context.Context) error {
 		Mounts: f.mounts,
 	}
 	var err error
-	f.resource, err = f.docker.GetPool().RunWithOptions(&opts)
+	f.resource, err = f.docker.Pool().RunWithOptions(&opts)
 	if err != nil {
 		return err
 	}
 
-	f.settings.Host = GetContainerAddress(f.resource, f.docker.GetNetwork())
+	f.settings.Host = ContainerAddress(f.resource, f.docker.Network())
 
 	if f.expireAfter == 0 {
 		f.expireAfter = 600
@@ -179,21 +183,8 @@ func (f *Postgres) TearDown(ctx context.Context) error {
 		return nil
 	}
 	wg.Add(1)
-	go purge(f.docker.GetPool(), f.resource)
+	go purge(f.docker.Pool(), f.resource)
 	return nil
-}
-
-func (f *Postgres) GetConnConfig() (*pgxpool.Config, error) {
-	return pgxpool.ParseConfig(f.settings.String())
-}
-
-// Deprecated: use Connect(ctx, PostgresConnDatabase("database_name"))
-func (f *Postgres) GetConnection(ctx context.Context, database string) (*pgx.Conn, error) {
-	settings := f.settings.Copy()
-	if database != "" {
-		settings.Database = database
-	}
-	return settings.Connect(ctx)
 }
 
 type PostgresConnConfig struct {
@@ -226,7 +217,7 @@ func PostgresConnCreateCopy() PostgresConnOpt {
 }
 
 func (f *Postgres) Connect(ctx context.Context, opts ...PostgresConnOpt) (*pgxpool.Pool, error) {
-	poolConfig, err := f.GetConnConfig()
+	poolConfig, err := f.ConnConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -267,14 +258,14 @@ func (f *Postgres) MustConnect(ctx context.Context, opts ...PostgresConnOpt) *pg
 	return pool
 }
 
-func (f *Postgres) GetHostName() string {
-	return GetHostName(f.resource)
+func (f *Postgres) HostName() string {
+	return HostName(f.resource)
 }
 
 func (f *Postgres) Psql(ctx context.Context, cmd []string, mounts []string, quiet bool) (int, error) {
 	// We're going to connect over the docker network
 	settings := f.settings.Copy()
-	settings.Host = GetHostIP(f.resource, f.docker.GetNetwork())
+	settings.Host = HostIP(f.resource, f.docker.Network())
 	var err error
 	opts := dockertest.RunOptions{
 		Repository: "governmentpaas/psql",
@@ -288,28 +279,28 @@ func (f *Postgres) Psql(ctx context.Context, cmd []string, mounts []string, quie
 		},
 		Mounts: mounts,
 		Networks: []*dockertest.Network{
-			f.docker.GetNetwork(),
+			f.docker.Network(),
 		},
 		Cmd: cmd,
 	}
 	// f.log.Debug("psql setup", zap.Any("environment", opts.Env))
-	resource, err := f.docker.GetPool().RunWithOptions(&opts)
+	resource, err := f.docker.Pool().RunWithOptions(&opts)
 	if err != nil {
 		return 0, err
 	}
-	exitCode, err := WaitForContainer(f.docker.GetPool(), resource)
+	exitCode, err := WaitForContainer(f.docker.Pool(), resource)
 	containerName := resource.Container.Name[1:]
 	containerID := resource.Container.ID[0:11]
 	if err != nil || exitCode != 0 && !quiet {
 		f.log.Debug("psql failed", zap.Int("status", exitCode), zap.String("container_name", containerName), zap.String("container_id", containerID), zap.String("cmd", strings.Join(cmd, " ")))
-		return exitCode, fmt.Errorf("psql exited with error (%v): %v", exitCode, getLogs(f.log, containerID, f.docker.GetPool()))
+		return exitCode, fmt.Errorf("psql exited with error (%v): %v", exitCode, getLogs(f.log, containerID, f.docker.Pool()))
 	}
 	if f.skipTearDown && getEnv().Debug {
 		// If there was an issue, and debug is enabled, don't destroy the container.
 		return exitCode, nil
 	}
 	wg.Add(1)
-	go purge(f.docker.GetPool(), resource)
+	go purge(f.docker.Pool(), resource)
 	return exitCode, nil
 }
 
@@ -332,7 +323,7 @@ func (f *Postgres) CreateDatabase(ctx context.Context, name string) error {
 		return errors.New("must provide a database name")
 	}
 	exitCode, err := f.Psql(ctx, []string{"createdb", "--template=template0", name}, []string{}, false)
-	f.log.Debug("create database", zap.Int("status", exitCode), zap.String("database", name), zap.String("container", f.GetHostName()))
+	f.log.Debug("create database", zap.Int("status", exitCode), zap.String("database", name), zap.String("container", f.HostName()))
 	return err
 }
 
@@ -343,7 +334,7 @@ func (f *Postgres) CopyDatabase(ctx context.Context, source string, target strin
 		source = f.settings.Database
 	}
 	exitCode, err := f.Psql(ctx, []string{"createdb", fmt.Sprintf("--template=%v", source), target}, []string{}, false)
-	f.log.Debug("copy database", zap.Int("status", exitCode), zap.String("source", source), zap.String("target", target), zap.String("container", f.GetHostName()))
+	f.log.Debug("copy database", zap.Int("status", exitCode), zap.String("source", source), zap.String("target", target), zap.String("container", f.HostName()))
 	return err
 }
 
@@ -367,7 +358,7 @@ func (f *Postgres) DropDatabase(ctx context.Context, name string) error {
 	}
 
 	exitCode, err := f.Psql(ctx, []string{"dropdb", name}, []string{}, false)
-	f.log.Debug("drop database", zap.Int("status", exitCode), zap.String("database", name), zap.String("container", f.GetHostName()))
+	f.log.Debug("drop database", zap.Int("status", exitCode), zap.String("database", name), zap.String("container", f.HostName()))
 	return err
 }
 
@@ -377,7 +368,7 @@ func (f *Postgres) Dump(ctx context.Context, dir string, filename string) error 
 		return fmt.Errorf("could not resolve path: %v", dir)
 	}
 	exitCode, err := f.Psql(ctx, []string{"sh", "-c", fmt.Sprintf("pg_dump -Fc -Z0 %v > /tmp/%v", f.settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false)
-	f.log.Debug("dump database", zap.Int("status", exitCode), zap.String("database", f.settings.Database), zap.String("container", f.GetHostName()), zap.String("path", path))
+	f.log.Debug("dump database", zap.Int("status", exitCode), zap.String("database", f.settings.Database), zap.String("container", f.HostName()), zap.String("path", path))
 	return err
 }
 
@@ -387,7 +378,7 @@ func (f *Postgres) Restore(ctx context.Context, dir string, filename string) err
 		return fmt.Errorf("could not resolve path: %v", dir)
 	}
 	exitCode, err := f.Psql(ctx, []string{"sh", "-c", fmt.Sprintf("pg_restore --dbname=%v --verbose --single-transaction /tmp/%v", f.settings.Database, filename)}, []string{fmt.Sprintf("%v:/tmp", path)}, false)
-	f.log.Debug("restore database", zap.Int("status", exitCode), zap.String("database", f.settings.Database), zap.String("container", f.GetHostName()), zap.String("path", path))
+	f.log.Debug("restore database", zap.Int("status", exitCode), zap.String("database", f.settings.Database), zap.String("container", f.HostName()), zap.String("path", path))
 	return err
 }
 
@@ -400,7 +391,7 @@ func (f *Postgres) LoadSql(ctx context.Context, path string) error {
 		}
 		name := filepath.Base(p)
 		exitCode, err := f.Psql(ctx, []string{"psql", fmt.Sprintf("--file=/tmp/%v", name)}, []string{fmt.Sprintf("%v:/tmp", dir)}, false)
-		f.log.Debug("load sql", zap.Int("status", exitCode), zap.String("database", f.settings.Database), zap.String("container", f.GetHostName()), zap.String("name", name))
+		f.log.Debug("load sql", zap.Int("status", exitCode), zap.String("database", f.settings.Database), zap.String("container", f.HostName()), zap.String("name", name))
 		if err != nil {
 			return fmt.Errorf("failed to run psql (load sql): %w", err)
 		}
@@ -448,7 +439,7 @@ func (f *Postgres) WaitForReady(ctx context.Context, d time.Duration) error {
 	if err := Retry(d, func() error {
 		var err error
 
-		port := GetContainerTcpPort(f.resource, f.docker.GetNetwork(), "5432")
+		port := ContainerTcpPort(f.resource, f.docker.Network(), "5432")
 		if port == "" {
 			err = fmt.Errorf("could not get port from container: %+v", f.resource.Container)
 			return err
@@ -499,7 +490,7 @@ func (f *Postgres) TableExists(ctx context.Context, database, schema, table stri
 	return count == 1, nil
 }
 
-func (f *Postgres) GetTableColumns(ctx context.Context, database, schema, table string) ([]string, error) {
+func (f *Postgres) TableColumns(ctx context.Context, database, schema, table string) ([]string, error) {
 	db, err := f.Connect(ctx, PostgresConnDatabase(database))
 	if err != nil {
 		return nil, err
@@ -519,7 +510,7 @@ func (f *Postgres) GetTableColumns(ctx context.Context, database, schema, table 
 	return cols, nil
 }
 
-func (f *Postgres) GetTables(ctx context.Context, database string) ([]string, error) {
+func (f *Postgres) Tables(ctx context.Context, database string) ([]string, error) {
 	db, err := f.Connect(ctx, PostgresConnDatabase(database))
 	if err != nil {
 		return nil, err
@@ -578,7 +569,7 @@ func (f *Postgres) ValidateModel(ctx context.Context, databaseName string, i int
 	}
 
 	fieldNames := columns(i)
-	columnNames, err := f.GetTableColumns(ctx, databaseName, schemaName, tableName)
+	columnNames, err := f.TableColumns(ctx, databaseName, schemaName, tableName)
 	if err != nil {
 		return err
 	}
@@ -612,4 +603,38 @@ func columns(i interface{}) []string {
 		}
 	}
 	return fields
+}
+
+// Deprecated: use Settings()
+func (f *Postgres) GetSettings() *ConnectionSettings {
+	return f.settings
+}
+
+// Deprecated: use ConnConfig()
+func (f *Postgres) GetConnConfig() (*pgxpool.Config, error) {
+	return pgxpool.ParseConfig(f.settings.String())
+}
+
+// Deprecated: use Connect(ctx, PostgresConnDatabase("database_name"))
+func (f *Postgres) GetConnection(ctx context.Context, database string) (*pgx.Conn, error) {
+	settings := f.settings.Copy()
+	if database != "" {
+		settings.Database = database
+	}
+	return settings.Connect(ctx)
+}
+
+// Deprecated: use HostName()
+func (f *Postgres) GetHostName() string {
+	return f.HostName()
+}
+
+// Deprecated: use Tables()
+func (f *Postgres) GetTables(ctx context.Context, database string) ([]string, error) {
+	return f.Tables(ctx, database)
+}
+
+// Deprecated: use TableColumns()
+func (f *Postgres) GetTableColumns(ctx context.Context, database, schema, table string) ([]string, error) {
+	return f.TableColumns(ctx, database, schema, table)
 }

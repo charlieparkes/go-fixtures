@@ -56,7 +56,7 @@ func TestPostgres(t *testing.T) {
 		if err == nil {
 			db.Close()
 		}
-		tables, err := p1.GetTables(ctx, "")
+		tables, err := p1.Tables(ctx, "")
 		require.NoError(t, err)
 		assert.Len(t, tables, 2)
 	})
@@ -66,7 +66,7 @@ func TestPostgres(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, exists)
 		if !exists {
-			tables, err := p1.GetTables(ctx, "")
+			tables, err := p1.Tables(ctx, "")
 			require.NoError(t, err)
 			fmt.Println(tables)
 		}
@@ -100,7 +100,7 @@ func TestPostgres(t *testing.T) {
 			db.Close()
 		}
 
-		tables, err := p1.GetTables(ctx, databaseName)
+		tables, err := p1.Tables(ctx, databaseName)
 		require.NoError(t, err)
 		assert.Len(t, tables, 2)
 
@@ -121,7 +121,7 @@ func TestPostgres(t *testing.T) {
 			db.Close()
 		}
 
-		tables, err := p1.GetTables(ctx, db.Config().ConnConfig.Database)
+		tables, err := p1.Tables(ctx, db.Config().ConnConfig.Database)
 		require.NoError(t, err)
 		assert.Len(t, tables, 2)
 
@@ -147,7 +147,7 @@ func TestPostgres(t *testing.T) {
 			db.Close()
 		}
 
-		tables, err := p2.GetTables(ctx, "")
+		tables, err := p2.Tables(ctx, "")
 		require.NoError(t, err)
 		assert.Len(t, tables, 2)
 

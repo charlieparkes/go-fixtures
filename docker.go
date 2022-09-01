@@ -58,23 +58,22 @@ type Docker struct {
 	network        *dockertest.Network
 }
 
-func (f *Docker) GetName() string {
+func (f *Docker) Name() string {
 	return f.name
 }
-
-func (f *Docker) GetNamePrefix() string {
+func (f *Docker) NamePrefix() string {
 	return f.namePrefix
 }
 
-func (f *Docker) GetNetworkName() string {
+func (f *Docker) NetworkName() string {
 	return f.networkName
 }
 
-func (f *Docker) GetPool() *dockertest.Pool {
+func (f *Docker) Pool() *dockertest.Pool {
 	return f.pool
 }
 
-func (f *Docker) GetNetwork() *dockertest.Network {
+func (f *Docker) Network() *dockertest.Network {
 	return f.network
 }
 
@@ -119,7 +118,7 @@ func (f *Docker) SetUp(ctx context.Context) error {
 
 func (f *Docker) TearDown(context.Context) error {
 	if !f.networkExisted {
-		if err := f.GetNetwork().Close(); err != nil {
+		if err := f.Network().Close(); err != nil {
 			return err
 		}
 	}
@@ -127,8 +126,8 @@ func (f *Docker) TearDown(context.Context) error {
 }
 
 func (f *Docker) getOrCreateNetwork() (*dockertest.Network, error) {
-	ns, err := f.GetPool().Client.FilteredListNetworks(map[string]map[string]bool{
-		"name": {f.GetNetworkName(): true},
+	ns, err := f.Pool().Client.FilteredListNetworks(map[string]map[string]bool{
+		"name": {f.NetworkName(): true},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error listing docker networks: %w", err)
@@ -145,7 +144,7 @@ func (f *Docker) getOrCreateNetwork() (*dockertest.Network, error) {
 		return &dockertest.Network{Network: &ns[0]}, nil
 	}
 
-	nw, err := f.GetPool().CreateNetwork(f.name)
+	nw, err := f.Pool().CreateNetwork(f.name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker network: %w", err)
 	}
@@ -160,14 +159,14 @@ func WaitForContainer(pool *dockertest.Pool, resource *dockertest.Resource) (int
 	return exitCode, err
 }
 
-func GetHostIP(resource *dockertest.Resource, network *dockertest.Network) string {
+func HostIP(resource *dockertest.Resource, network *dockertest.Network) string {
 	if n, ok := resource.Container.NetworkSettings.Networks[network.Network.Name]; ok {
 		return n.IPAddress
 	}
 	return ""
 }
 
-func GetHostName(resource *dockertest.Resource) string {
+func HostName(resource *dockertest.Resource) string {
 	return resource.Container.Name[1:]
 }
 
@@ -175,9 +174,9 @@ func GetHostName(resource *dockertest.Resource) string {
 // When running inside a host container and connected to a bridge network, this returns the address of the container as known by the container network.
 // When running inside a host container and not connected to a bridge network, this returns the network gateway.
 // When not running inside a host container it returns localhost.
-func GetContainerAddress(resource *dockertest.Resource, network *dockertest.Network) string {
+func ContainerAddress(resource *dockertest.Resource, network *dockertest.Network) string {
 	if UseBridgeNetwork(network) {
-		return GetHostIP(resource, network)
+		return HostIP(resource, network)
 	}
 	if IsRunningInContainer() {
 		gw := resource.Container.NetworkSettings.Gateway
@@ -194,7 +193,7 @@ func GetContainerAddress(resource *dockertest.Resource, network *dockertest.Netw
 // GetContainerTcpPort returns the port which can be used to connect into the container from the test.
 // When connected to a bridge network, the container exposed port can be used.
 // Otherwise, we'll need to use the mapped port.
-func GetContainerTcpPort(resource *dockertest.Resource, network *dockertest.Network, port string) string {
+func ContainerTcpPort(resource *dockertest.Resource, network *dockertest.Network, port string) string {
 	if UseBridgeNetwork(network) {
 		return port
 	}
@@ -249,4 +248,49 @@ func getLogs(log *zap.Logger, containerID string, pool *dockertest.Pool) string 
 func purge(p *dockertest.Pool, r *dockertest.Resource) {
 	p.Purge(r)
 	wg.Done()
+}
+
+// Deprecated: use Name()
+func (f *Docker) GetName() string {
+	return f.name
+}
+
+// Deprecated: use NamePrefix()
+func (f *Docker) GetNamePrefix() string {
+	return f.namePrefix
+}
+
+// Deprecated: use NetworkName()
+func (f *Docker) GetNetworkName() string {
+	return f.networkName
+}
+
+// Deprecated: use Pool()
+func (f *Docker) GetPool() *dockertest.Pool {
+	return f.pool
+}
+
+// Deprecated: use Network()
+func (f *Docker) GetNetwork() *dockertest.Network {
+	return f.network
+}
+
+// Deprecated: use HostIP()
+func GetHostIP(resource *dockertest.Resource, network *dockertest.Network) string {
+	return HostIP(resource, network)
+}
+
+// Deprecated: use HostName()
+func GetHostName(resource *dockertest.Resource) string {
+	return HostName(resource)
+}
+
+// Deprecated: use ContainerAddress()
+func GetContainerAddress(resource *dockertest.Resource, network *dockertest.Network) string {
+	return ContainerAddress(resource, network)
+}
+
+// Deprecated: use ContainerTcpPort()
+func GetContainerTcpPort(resource *dockertest.Resource, network *dockertest.Network, port string) string {
+	return ContainerTcpPort(resource, network, port)
 }
