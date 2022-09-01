@@ -100,14 +100,12 @@ func (f *Fixtures) TearDown(ctx context.Context) error {
 }
 
 // RecoverTearDown returns a deferrable function that will teardown in the event of a panic.
-func (f *Fixtures) RecoverTearDown(ctx context.Context) func() {
-	return func() {
-		if r := recover(); r != nil {
-			if err := f.TearDown(ctx); err != nil {
-				f.log.Warn("failed to tear down", zap.Error(err))
-			}
-			panic(r)
+func (f *Fixtures) RecoverTearDown(ctx context.Context) {
+	if r := recover(); r != nil {
+		if err := f.TearDown(ctx); err != nil {
+			f.log.Warn("failed to tear down", zap.Error(err))
 		}
+		panic(r)
 	}
 }
 
