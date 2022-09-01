@@ -228,6 +228,18 @@ func IsRunningInContainer() bool {
 	}
 }
 
+func IsDockerRunning() bool {
+	pool, err := dockertest.NewPool("")
+	if err != nil {
+		return false
+	}
+	err = pool.Client.Ping()
+	if err != nil {
+		return false
+	}
+	return true
+}
+
 func getLogs(log *zap.Logger, containerID string, pool *dockertest.Pool) string {
 	var buf bytes.Buffer
 	logsOpts := docker.LogsOptions{

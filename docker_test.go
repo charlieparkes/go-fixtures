@@ -7,10 +7,14 @@ import (
 
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDocker(t *testing.T) {
 	ctx := context.Background()
+
+	require.True(t, IsDockerRunning())
+
 	f := NewDocker()
 	assert.NoError(t, f.SetUp(ctx))
 	defer f.TearDown(ctx)
