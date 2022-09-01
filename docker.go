@@ -106,6 +106,10 @@ func (f *Docker) SetUp(ctx context.Context) error {
 		return err
 	}
 
+	if err := f.pool.Client.Ping(); err != nil {
+		return fmt.Errorf("docker unavailable: %w", err)
+	}
+
 	if f.network, err = f.getOrCreateNetwork(); err != nil {
 		return err
 	}
