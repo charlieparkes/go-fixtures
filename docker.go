@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
 	"go.uber.org/zap"
@@ -91,7 +90,7 @@ func (f *Docker) SetUp(ctx context.Context) error {
 	}
 
 	if f.name == "" {
-		f.name = namesgenerator.GetRandomName(0)
+		f.name = GetRandomName(0)
 		if f.namePrefix != "" {
 			f.name = f.namePrefix + "_" + f.name
 		}
