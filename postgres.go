@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/charlieparkes/go-structs"
-	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/iancoleman/strcase"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4"
@@ -230,7 +229,7 @@ func (f *Postgres) Connect(ctx context.Context, opts ...PostgresConnOpt) (*pgxpo
 		cfg.poolConfig.ConnConfig.Database = cfg.database
 	}
 	if cfg.createCopy {
-		copiedDatabaseName := namesgenerator.GetRandomName(0)
+		copiedDatabaseName := GetRandomName(0)
 		if err := f.CopyDatabase(ctx, cfg.database, copiedDatabaseName); err != nil {
 			return nil, err
 		}

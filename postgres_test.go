@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/docker/docker/pkg/namesgenerator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -81,7 +80,7 @@ func TestPostgres(t *testing.T) {
 	})
 
 	t.Run("CreateDatabase", func(t *testing.T) {
-		name := namesgenerator.GetRandomName(0)
+		name := GetRandomName(0)
 		require.NoError(t, p1.CreateDatabase(ctx, name))
 		db, err := p1.Connect(ctx, PostgresConnDatabase(name))
 		require.NoError(t, err)
@@ -91,7 +90,7 @@ func TestPostgres(t *testing.T) {
 	})
 
 	t.Run("CopyDatabase", func(t *testing.T) {
-		databaseName := namesgenerator.GetRandomName(0)
+		databaseName := GetRandomName(0)
 		require.NoError(t, p1.CopyDatabase(ctx, "", databaseName))
 
 		db, err := p1.Connect(ctx, PostgresConnDatabase(databaseName))

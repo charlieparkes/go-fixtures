@@ -6,6 +6,7 @@ require (
 	github.com/cenkalti/backoff/v3 v3.2.2
 	github.com/charlieparkes/go-structs v1.0.0
 	github.com/docker/docker v20.10.17+incompatible
+	github.com/google/uuid v1.3.0
 	github.com/iancoleman/strcase v0.2.0
 	github.com/jackc/pgtype v1.12.0
 	github.com/jackc/pgx/v4 v4.17.1

@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/docker/docker/pkg/namesgenerator"
 	"go.uber.org/zap"
 )
 
@@ -39,7 +38,7 @@ type Fixtures struct {
 
 func (f *Fixtures) Add(ctx context.Context, fixtures ...Fixture) error {
 	for _, fix := range fixtures {
-		if err := f.AddByName(ctx, namesgenerator.GetRandomName(0), fix); err != nil {
+		if err := f.AddByName(ctx, GetRandomName(0), fix); err != nil {
 			return err
 		}
 	}
