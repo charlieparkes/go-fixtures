@@ -6,5 +6,5 @@ import (
 )
 
 func TestMemory(t *testing.T) {
-	fmt.Println("memory MB", memoryMB())
+	fmt.Println("memory MB", MemoryMB())
 }

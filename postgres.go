@@ -151,8 +151,8 @@ func (f *Postgres) SetUp(ctx context.Context) error {
 			"-c", "synchronous_commit=off",
 			"-c", "full_page_writes=off",
 			"-c", "random_page_cost=1.1",
-			"-c", fmt.Sprintf("shared_buffers=%vMB", memoryMB()/8),
-			"-c", fmt.Sprintf("work_mem=%vMB", memoryMB()/8),
+			"-c", fmt.Sprintf("shared_buffers=%vMB", MemoryMB()/8),
+			"-c", fmt.Sprintf("work_mem=%vMB", MemoryMB()/8),
 		},
 		Mounts: f.mounts,
 	}
