@@ -1,5 +1,16 @@
 -include $(shell [ -e .build-harness ] || curl -sSL -o .build-harness "https://git.io/fjZtV"; echo .build-harness)
 
+.DEFAULT_GOAL = all
+all: fmt vet test
+
+.PHONY: fmt
+fmt:
+	go fmt ./...
+
+.PHONY: vet
+vet:
+	go vet ./...
+
 .PHONY: recover
 recover:
 	@set -o pipefail; ( \

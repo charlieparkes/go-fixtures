@@ -12,6 +12,6 @@ func mustSysconf(name int) int64 {
 	return x
 }
 
-func memoryMB() int64 {
+func MemoryMB() int64 {
 	return int64(mustSysconf(sysconf.SC_PHYS_PAGES)*mustSysconf(sysconf.SC_PAGE_SIZE)) / 1e6
 }
