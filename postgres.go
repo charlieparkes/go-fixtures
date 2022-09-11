@@ -182,8 +182,7 @@ func (f *Postgres) TearDown(ctx context.Context) error {
 	if f.skipTearDown {
 		return nil
 	}
-	wg.Add(1)
-	go purge(f.docker.Pool(), f.resource)
+	f.docker.Purge(f.resource)
 	return nil
 }
 
@@ -299,8 +298,7 @@ func (f *Postgres) Psql(ctx context.Context, cmd []string, mounts []string, quie
 		// If there was an issue, and debug is enabled, don't destroy the container.
 		return exitCode, nil
 	}
-	wg.Add(1)
-	go purge(f.docker.Pool(), resource)
+	f.docker.Purge(resource)
 	return exitCode, nil
 }
 

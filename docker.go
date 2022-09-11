@@ -257,9 +257,12 @@ func getLogs(log *zap.Logger, containerID string, pool *dockertest.Pool) string 
 	return buf.String()
 }
 
-func purge(p *dockertest.Pool, r *dockertest.Resource) {
-	p.Purge(r)
-	wg.Done()
+func (f *Docker) Purge(r *dockertest.Resource) {
+	wg.Add(1)
+	go func() {
+		f.Pool().Purge(r)
+		wg.Done()
+	}()
 }
 
 // Deprecated: use Name()
