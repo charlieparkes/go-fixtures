@@ -1,10 +1,9 @@
 # go-fixtures
 
+go-fixtures provides a basic framework for test fixture setup and teardown.
+
 Import `github.com/charlieparkes/go-fixtures/v2`.
 
-Inspired by [pytest](https://github.com/pytest-dev/pytest), go-fixtures provides a collection of fixtures which automagically setup/teardown services.
-
-### Supported Fixtures
-* docker: *`Docker`*
-* [postgres](./examples/postgres): *`Postgres`, `PostgresWithSchema`, `Psql`*
-* aws (localstack): coming soon
+### Features fixtures for...
+* docker
+* postgres (note, further pgsql development has been forked into [charlieparkes/go-pgtest](https://github.com/charlieparkes/go-pgtest))
